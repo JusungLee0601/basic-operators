@@ -1,6 +1,6 @@
-import { View } from "basic-operators";
+import { View, Row } from "noria-clientside";
 
-const view = View.new();
+const view = View.new("Dummy");
 
 //const inserts = document.getElementById("inserts");
 
@@ -11,11 +11,25 @@ const refreshEntries = () => {
 }
 
 const addEntry = () => {
-    var updateString = document.getElementById("data").value;
+    var articleString = document.getElementById("article").value;
+    var countString = document.getElementById("count").value;
     console.log("send");
-    view.update(updateString);
+
+    var row = Row.new(articleString, countString);
+
+    view.insert(row);
 }
+
+const select = () => {
+    var searchCol = document.getElementById("searchcol").value;
+    var searchData = document.getElementById("searchdata").value;
+    console.log("select");
+
+    view.selection(searchCol, searchData)
+}
+
 
 document.getElementById("refresh").addEventListener("click", event => {refreshEntries();});
 document.getElementById("send").addEventListener("click", event => {addEntry();});
+document.getElementById("select").addEventListener("click", event => {select();});
 

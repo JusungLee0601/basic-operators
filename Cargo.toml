@@ -1,5 +1,5 @@
 [package]
-name = "basic-operators"
+name = "noria-clientside"
 version = "0.1.0"
 authors = ["JusungLee0601 <jusunglee0601@gmail.com>"]
 edition = "2018"
