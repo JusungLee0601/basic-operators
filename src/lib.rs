@@ -1,7 +1,9 @@
 mod utils;
+extern crate js_sys;
 
 use wasm_bindgen::prelude::*;
 use std::fmt;
+//use std::collections::HashMap;
 
 // When the `wee_alloc` feature is enabled, use `wee_alloc` as the global
 // allocator.
@@ -38,6 +40,10 @@ impl fmt::Display for DataType {
     }
 }
 
+#[derive(Debug)]
+pub enum RowError {
+}
+
 //Row
 #[wasm_bindgen]     
 #[derive(Debug)]
@@ -56,8 +62,8 @@ impl fmt::Display for Row {
     }
 }
 
-//Row functions
-#[wasm_bindgen]  
+
+//Row functions 
 impl Row {
     //new accepts arbitrary columns, vector slice
     //in js dictionary, flatten
@@ -67,12 +73,12 @@ impl Row {
         Row{ data }
     }
 
-    pub fn update_index<T>(&mut self, index: u32, update: T) {
+    pub fn update_index(&mut self, index: usize, update: DataType) {
         self.data[index] = update;
     }
 }
 
-//hashmaps
+//hashmaps, keys are in their own column 
 #[wasm_bindgen]
 #[derive(Debug)]
 pub struct View {
@@ -94,34 +100,67 @@ impl fmt::Display for View {
         }
 
         //write!(f, "{:#?}", self)
+
+        Ok(())
     }
 }
 
+impl View {
+    pub fn set_col(some_iterable: &JsValue) -> Result<Vec<String>, JsValue> {
+        let mut new_col = Vec::new();
+        let iterator = js_sys::try_iter(some_iterable)?.ok_or_else(|| {
+            "need to pass iterable JS values!"
+        })?;
+
+        for x in iterator {
+            let x = x?;
+            let column = x.as_string();
+
+            if column.is_some() {
+                new_col.push(column.unwrap());
+            }
+        }
+
+        Ok(new_col)
+    }
+
+    // pub fn set_sch(some_iterable: &JsValue) -> Result<Vec<SchemaType>, JsValue> {
+    //     let mut new_sch = Vec::new();
+    //     let iterator = js_sys::try_iter(some_iterable)?.ok_or_else(|| {
+    //         "need to pass iterable JS values!"
+    //     })?;
+
+    //     for x in iterator {
+    //         let x = x?;
+
+    //         new_sch.push(x);
+    //     }
+
+    //     Ok(new_sch)
+    // }
+}
+
+//pageload view, view creation without a user 
 #[wasm_bindgen]
 impl View {
-    pub fn new(inputname: String) -> View {
+    pub fn new(input_name: String, col_arr: &JsValue, 
+            sch_arr: &JsValue) -> View {
+        let name = input_name;
         let mut table = Vec::new();
-        // let articleD = "Dummy";
-        // let countD = "0";
-        // let row = Row::new(articleD.to_owned(), countD.to_owned()); 
-        // table.push(row);
-
-        let mut columns = Vec::new();
-        // let article = "Article";
-        // let count = "Count";
-        // columns.push(article.to_owned());
-        // columns.push(count.to_owned());
-        
         let mut schema = Vec::new();
 
-        let name = inputname;
+        let mut columns = match Self::set_col(col_arr) {
+            Ok(str_vec) => str_vec,
+            Err(err) => Vec::new(),
+        };   
+        //let mut schema = Self::set_sch(sch_arr)
 
         View {name, columns, schema, table}
     }
 
-    pub fn insert(&mut self, row: Row) {
-        self.table.push(row)
-    }
+    // pub fn insert(&mut self, row: Row) {
+    //     self.table.push(row)
+    // }
 
     pub fn render(&self) -> String {
         self.to_string()
@@ -129,37 +168,37 @@ impl View {
 
     //range, inequality comparison, trait rust eq, partialeq for datatypes
     //copy! into operator, get outside new, view -> operator -> view
-    pub fn selection(&mut self, col: String, matching: String) {
-        let mut newtable = Vec::new();
+    // pub fn selection(&mut self, col: String, matching: String) {
+    //     let mut newtable = Vec::new();
 
-        let index = self.columns.iter().position(|r| r.to_string() == col).unwrap();
+    //     let index = self.columns.iter().position(|r| r.to_string() == col).unwrap();
 
-        if index == 0 {
-            for row in self.table.iter() {
-                match &row.data[0] {
-                    DataType::Text(n) => if *n == matching {
-                        let newrow = Row::new(row.data[0].to_string(), row.data[1].to_string());
-                        newtable.push(newrow);
-                    }, 
-                    _ => println!("Hello World!"),
-                }
-            }
-        } else if index == 1 {
-            let check = matching.parse::<i32>().unwrap();
+    //     if index == 0 {
+    //         for row in self.table.iter() {
+    //             match &row.data[0] {
+    //                 DataType::Text(n) => if *n == matching {
+    //                     let newrow = Row::new(row.data[0].to_string(), row.data[1].to_string());
+    //                     newtable.push(newrow);
+    //                 }, 
+    //                 _ => println!("Hello World!"),
+    //             }
+    //         }
+    //     } else if index == 1 {
+    //         let check = matching.parse::<i32>().unwrap();
 
-            for row in self.table.iter() {
-                match &row.data[0] {
-                    DataType::Int(n) => if *n == check {
-                        let newrow = Row::new(row.data[0].to_string(), row.data[1].to_string());
-                        newtable.push(newrow);
-                    }, 
-                    _ => println!("Hello World!"),
-                }
-            }
-        }
+    //         for row in self.table.iter() {
+    //             match &row.data[0] {
+    //                 DataType::Int(n) => if *n == check {
+    //                     let newrow = Row::new(row.data[0].to_string(), row.data[1].to_string());
+    //                     newtable.push(newrow);
+    //                 }, 
+    //                 _ => println!("Hello World!"),
+    //             }
+    //         }
+    //     }
 
-        self.table = newtable;
-    }
+    //     self.table = newtable;
+    // }
 }
 
 

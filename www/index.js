@@ -1,7 +1,9 @@
 import { View, Row } from "noria-clientside";
 
+page setup 
 const view = View.new("Dummy");
 
+//note assumptsions  
 //const inserts = document.getElementById("inserts");
 
 const refreshEntries = () => {
