@@ -1,7 +1,8 @@
-import { View, Row } from "noria-clientside";
+import { View, Row, SchemaType, DataType } from "noria-clientside";
 
-page setup 
-const view = View.new("Dummy");
+var schema = [SchemaType.Text, SchemaType.Int];
+var columns = ["Article Name", "Count"];
+const view = View.newJS("Dummy", 0, columns, schema);
 
 //note assumptsions  
 //const inserts = document.getElementById("inserts");
@@ -14,24 +15,23 @@ const refreshEntries = () => {
 
 const addEntry = () => {
     var articleString = document.getElementById("article").value;
-    var countString = document.getElementById("count").value;
-    console.log("send");
+    var count = parseInt(document.getElementById("count").value);
 
-    var row = Row.new(articleString, countString);
+    var row = [articleString, count];
 
     view.insert(row);
 }
 
-const select = () => {
-    var searchCol = document.getElementById("searchcol").value;
-    var searchData = document.getElementById("searchdata").value;
-    console.log("select");
+// const select = () => {
+//     var searchCol = document.getElementById("searchcol").value;
+//     var searchData = document.getElementById("searchdata").value;
+//     console.log("select");
 
-    view.selection(searchCol, searchData)
-}
+//     view.selection(searchCol, searchData)
+// }
 
 
 document.getElementById("refresh").addEventListener("click", event => {refreshEntries();});
 document.getElementById("send").addEventListener("click", event => {addEntry();});
-document.getElementById("select").addEventListener("click", event => {select();});
+//document.getElementById("select").addEventListener("click", event => {select();});
 
