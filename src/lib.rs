@@ -245,11 +245,13 @@ pub struct Selection {
     child: View
 }
 
+//webworkers, channels in web assembly
+//row specific operators
 impl Selection { 
     pub fn newJS(col_ind: usize, selection: JsValue, parent: View) 
-               -> Selection {
+                 -> Selection {
         if parent.table_index == col_ind {
-
+            
         } else {
 
         }
