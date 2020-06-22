@@ -45,11 +45,11 @@ pub enum SchemaType {
 }
 
 //from conversion, f64->SchemaType
-impl From<f64> for SchemaType {
-    fn from(item: f64) -> Self {
-        if item == 2.0 {
+impl From<JsValue> for SchemaType {
+    fn from(item: JsValue) -> Self {
+        if item == 2 {
             SchemaType::Text
-        } else if item == 1.0 {
+        } else if item == 1 {
             SchemaType::Int
         } else {
             SchemaType::None
@@ -159,11 +159,8 @@ impl View {
 
         for x in iterator {
             let x = x?;
-            let schema = x.as_f64();
 
-            if schema.is_some() {
-                new_sch.push(SchemaType::from(schema.unwrap()));
-            }
+            new_sch.push(SchemaType::from(x));
         }
 
         Ok(new_sch)
