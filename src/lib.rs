@@ -4,6 +4,7 @@ extern crate js_sys;
 use wasm_bindgen::prelude::*;
 use std::fmt;
 use std::collections::HashMap;
+use petgraph::graph::Graph;
 
 // When the `wee_alloc` feature is enabled, use `wee_alloc` as the global
 // allocator.
@@ -21,22 +22,23 @@ pub enum DataType {
     Text(String)
 }
 
-// //from conversion, ST->DT
-// impl From<SchemaType> for DataType {
-//     fn from(item: SchemaType) -> Self {
-//         if item == SchemaType::None {
-//             SchemaType::None
-//         } else if item == SchemaType::Int {
-//             SchemaType::Int
-//         } else {
-//             SchemaType::Text
-//         }
-//     }
-// }
+//from conversion, f64->SchemaType
+impl From<&JsValue> for DataType {
+    fn from(item: &JsValue) -> Self {
+        if (*item).as_f64().is_some()  {
+            DataType::Int(item.as_f64().unwrap() as i32)
+        } else if (*item).as_string().is_some()  {
+            DataType::Text(item.as_string().unwrap())
+        } else {
+            DataType::None
+        }
+    }
+}
 
 //Schema types
 #[wasm_bindgen]
 #[derive(Debug)]
+#[derive(Clone)]
 #[derive(PartialEq)]
 pub enum SchemaType {
     None = 0,
@@ -72,6 +74,7 @@ impl fmt::Display for DataType {
 
 //Row
 #[wasm_bindgen]     
+#[derive(Clone)]
 #[derive(Hash, Eq, PartialEq)]
 #[derive(Debug)]
 pub struct Row {
@@ -105,12 +108,13 @@ impl Row {
 //View
 #[wasm_bindgen]
 #[derive(Debug)]
+#[derive(Clone)]
 pub struct View {
     name: String,
     columns: Vec<String>,
     schema: Vec<SchemaType>,
     table_index: usize,
-    table: HashMap<Row, DataType>
+    table: HashMap<DataType, Row>
 }
 
 //writing WITHOUT SCHEMA
@@ -120,7 +124,7 @@ impl fmt::Display for View {
         for strings in self.columns.iter() {
             write!(f, "{}", strings);
         }
-        for row in self.table.iter() {
+        for (key, row) in self.table.iter() {
             write!(f, "{:#?} \n", row);
         }
 
@@ -228,7 +232,7 @@ impl View {
         }; 
 
         let key = row_data[self.table_index].clone();
-        self.table.insert(Row::new(row_data.clone()), key);
+        self.table.insert(key, Row::new(row_data.clone()));
     }
 
     pub fn render(&self) -> String {
@@ -237,37 +241,84 @@ impl View {
 }
 
 #[wasm_bindgen]
-pub struct Selection {
-    parent: View,
-    child: View
+#[derive(Debug)]
+pub struct DataFlowGraph {
+    data: Graph<View, Selection>
 }
 
-//webworkers, channels in web assembly
-//row specific operators
-impl Selection { 
-    pub fn newJS(col_ind: usize, selection: JsValue, parent: View) 
-                 -> Selection {
-        if parent.table_index == col_ind {
-            
-        } else {
-
-        }
-
-
+//writing WITHOUT SCHEMA
+impl fmt::Display for DataFlowGraph {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:#?}", self)
     }
 }
 
 
+#[wasm_bindgen]
+impl DataFlowGraph { 
+    pub fn new() -> DataFlowGraph {
+        let data = Graph::new();
 
-// //children and parent aware
-// pub struct Selection {
-    
-// }
+        DataFlowGraph { data }
+    }
 
-//distinct join stateful
-//without duplicate removal
+    pub fn extend(&mut self, parent: View, child: View, operator: Selection) {
+        let first = self.data.add_node(parent);
+        let second = self.data.add_node(child);
+        self.data.add_edge(first, second, operator);
+    }
 
-//library PetGraph
-// pub struct Graph
+    pub fn render(&self) -> String {
+        self.to_string()
+    }
+}
+
+#[wasm_bindgen]
+#[derive(Debug)]
+pub enum Operator {
+    Selection
+}
+
+#[wasm_bindgen]
+#[derive(Debug)]
+pub struct Selection {
+    col_ind: usize,
+    condition: DataType
+}
+
+//webworkers, channels in web assembly
+//row specific operators
+//trait ingredient
+#[wasm_bindgen]
+impl Selection { 
+    pub fn newJS(col_ind: usize, selection: &JsValue) 
+                 -> Selection {
+        let condition = DataType::from(selection);
+
+        Selection { col_ind, condition }
+    }
+
+    pub fn select(&mut self, child_name: String,  parent: View) -> View {
+        let mut child = View {
+            name: child_name,
+            columns: parent.columns,
+            schema: parent.schema,
+            table_index: parent.table_index,
+            table: HashMap::new()
+            
+        };
+        
+        for (key, row) in parent.table.iter() {
+            if row.data[self.col_ind] == self.condition {
+                let row_copy = row.clone();
+                let key = row_copy.data[child.table_index].clone();
+                
+                child.table.insert(key, row_copy);
+            }
+        }
+
+        child
+    }
+}
 
 
