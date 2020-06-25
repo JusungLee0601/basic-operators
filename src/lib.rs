@@ -6,6 +6,17 @@ use std::fmt;
 use std::collections::HashMap;
 use petgraph::graph::Graph;
 
+// SOME IMPORTANT ASSUMPTIONS
+
+// + I don't differentiate between Tables and Views. 
+// + Operators do not generate views. Instead, views are made first and 
+//   then connected with an operator. This assumes that the entire graph is
+//   built, and then filled in with relevant columns.
+// + Honestly feels so foreign. Strange to have to "build" the structure, but
+//   makes sense in what actually gets sent to a client (code), and I guess the 
+//   the amount itself is relatively small compared to what's actually held
+//   server side.
+
 // When the `wee_alloc` feature is enabled, use `wee_alloc` as the global
 // allocator.
 #[cfg(feature = "wee_alloc")]
@@ -14,8 +25,7 @@ static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
 //Data
 #[derive(Debug)]
-#[derive(Clone)]
-#[derive(Hash, Eq, PartialEq)]
+#[derive(Clone, Hash, Eq, PartialEq)]
 pub enum DataType {
     None,
     Int(i32),
@@ -37,9 +47,7 @@ impl From<&JsValue> for DataType {
 
 //Schema types
 #[wasm_bindgen]
-#[derive(Debug)]
-#[derive(Clone)]
-#[derive(PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum SchemaType {
     None = 0,
     Int = 1,
@@ -74,9 +82,8 @@ impl fmt::Display for DataType {
 
 //Row
 #[wasm_bindgen]     
-#[derive(Clone)]
-#[derive(Hash, Eq, PartialEq)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
+#[derive(Hash, Eq, PartialEq, Clone)]
 pub struct Row {
     data: Vec<DataType>
 }
@@ -105,10 +112,25 @@ impl Row {
     }
 }
 
+//Schema types
+#[wasm_bindgen]
+#[derive(Debug, Clone, PartialEq)]
+pub enum ChangeType {
+    Insertion = 0,
+    Deletion = 1,
+}
+
+//Schema types
+#[wasm_bindgen]
+#[derive(Debug, Clone, PartialEq)]
+pub struct Change {
+    type: ChangeType,
+    batch: Vec<Row>
+}
+
 //View
 #[wasm_bindgen]
 #[derive(Debug)]
-#[derive(Clone)]
 pub struct View {
     name: String,
     columns: Vec<String>,
@@ -134,6 +156,7 @@ impl fmt::Display for View {
     }
 }
 
+//processing fnss to set columns and schema, view mod fns
 impl View {
     pub fn set_col(some_iterable: &JsValue) 
                    -> Result<Vec<String>, JsValue> {
@@ -170,47 +193,21 @@ impl View {
         Ok(new_sch)
     }
 
-    pub fn create_row_vec(&mut self, some_iterable: &JsValue) 
-                   -> Result<Vec<DataType>, JsValue> {
-        let mut row_vec = Vec::new();
-        let iterator = js_sys::try_iter(some_iterable)?.ok_or_else(|| {
-            "need to pass iterable JS values!"
-        })?;
-
-        let mut count = 0;
-
-        for x in iterator {
-            let mut x = x?;
-
-            let mut ind_row = DataType::None;
-            
-            if self.schema[count]== SchemaType::Int {
-                let insert = x.as_f64();
-                if insert.is_some() {
-                    let final_insert = insert.unwrap() as i32;
-                    ind_row = DataType::Int(final_insert);
-                }
-            } else if self.schema[count] == SchemaType::Text {
-                let insert = x.as_string();
-                if insert.is_some() {
-                    ind_row = DataType::Text(insert.unwrap());
-                }
-            }
-
-            row_vec.push(ind_row);
-            count = count + 1;
-        }
-
-        Ok(row_vec)
+    pub fn insert(&mut self, row: Row) {
+        let key = row.data[self.table_index].clone();
+        self.table.insert(key, row);
     }
 
+    pub fn delete(&mut self, key: Datatype) {
+        self.table.remove(&key);
+    }
 }
 
 //pageload view, view creation without a user 
 #[wasm_bindgen]
 impl View {
     pub fn newJS(name: String, table_index: usize, col_arr: &JsValue, 
-            sch_arr: &JsValue) -> View {
+                 sch_arr: &JsValue) -> View {
         let mut table = HashMap::new();
 
         let mut columns = match Self::set_col(col_arr) {
@@ -225,20 +222,12 @@ impl View {
         View {name, table_index, columns, schema, table}
     }
 
-    pub fn insert(&mut self, js_row: &JsValue) {
-        let row_data = match Self::create_row_vec(self, js_row) {
-            Ok(row_vec) => row_vec,
-            Err(err) => Vec::new(),
-        }; 
-
-        let key = row_data[self.table_index].clone();
-        self.table.insert(key, Row::new(row_data.clone()));
-    }
-
     pub fn render(&self) -> String {
         self.to_string()
     }
 }
+
+//batches down 
 
 #[wasm_bindgen]
 #[derive(Debug)]
@@ -253,8 +242,43 @@ impl fmt::Display for DataFlowGraph {
     }
 }
 
-
 #[wasm_bindgen]
+impl DataFlowGraph { 
+    pub fn process_into_row(inp_view: &View, some_iterable: &JsValue)
+            -> Result<Row>, JsValue> {
+        let mut row_vec = Vec::new();
+        let iterator = js_sys::try_iter(some_iterable)?.ok_or_else(|| {
+            "need to pass iterable JS values!"
+        })?;
+
+        let mut count = 0;
+
+        for x in iterator {
+            let mut x = x?;
+
+            let mut ind_row = DataType::None;
+            
+            if (*View).schema[count]== SchemaType::Int {
+                let insert = x.as_f64();
+                if insert.is_some() {
+                    let final_insert = insert.unwrap() as i32;
+                    ind_row = DataType::Int(final_insert);
+                }
+            } else if (*View).schema[count] == SchemaType::Text {
+                let insert = x.as_string();
+                if insert.is_some() {
+                    ind_row = DataType::Text(insert.unwrap());
+                }
+            }
+
+            row_vec.push(ind_row);
+            count = count + 1;
+        }
+
+        Ok(Row::new(row_vec))
+    }
+}
+
 impl DataFlowGraph { 
     pub fn new() -> DataFlowGraph {
         let data = Graph::new();
@@ -268,15 +292,38 @@ impl DataFlowGraph {
         self.data.add_edge(first, second, operator);
     }
 
+    pub fn insert(&mut self, view_to_edit: &View, row_ins_js: &JsValue) {
+        let mut row_ins_rust = match Self::process_into_row(row_ins_js) {
+            Ok(row) => row,
+            Err(err) => Row::new(Vec::new()),
+        };  
+
+        *View.insert(row_ins_rust);
+
+        for (edge, node) in self.neighbors()
+
+        process_changes(View)
+    }
+
+    pub fn delete(view_to_edit: &View, row_del_js: &JsValue) {
+        let mut row_del_rust = match Self::process_into_vec(row_del_js) {
+            Ok(vec) => vec,
+            Err(err) => Row::new(Vec::new()),
+        };  
+    
+    }
+
+    pub fn process_changes {
+
+    }
+
     pub fn render(&self) -> String {
         self.to_string()
     }
 }
 
-#[wasm_bindgen]
-#[derive(Debug)]
-pub enum Operator {
-    Selection
+pub trait Operator {
+    fn apply(child: &View, update: Update) -> Option<Update>; 
 }
 
 #[wasm_bindgen]
@@ -286,9 +333,10 @@ pub struct Selection {
     condition: DataType
 }
 
+
+
 //webworkers, channels in web assembly
 //row specific operators
-//trait ingredient
 #[wasm_bindgen]
 impl Selection { 
     pub fn newJS(col_ind: usize, selection: &JsValue) 
@@ -305,7 +353,6 @@ impl Selection {
             schema: parent.schema,
             table_index: parent.table_index,
             table: HashMap::new()
-            
         };
         
         for (key, row) in parent.table.iter() {
@@ -319,6 +366,12 @@ impl Selection {
 
         child
     }
+}
+
+#[wasm_bindgen]
+#[derive(Debug)]
+pub struct Projection {
+    col_ind: Vec<usize>
 }
 
 
