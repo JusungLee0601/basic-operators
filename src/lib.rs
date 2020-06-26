@@ -5,6 +5,7 @@ use wasm_bindgen::prelude::*;
 use std::fmt;
 use std::collections::HashMap;
 use petgraph::graph::Graph;
+use petgraph::graph::NodeIndex;
 
 // SOME IMPORTANT ASSUMPTIONS
 
@@ -82,7 +83,7 @@ impl fmt::Display for DataType {
 
 //Row
 #[wasm_bindgen]     
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 #[derive(Hash, Eq, PartialEq, Clone)]
 pub struct Row {
     data: Vec<DataType>
@@ -113,19 +114,26 @@ impl Row {
 }
 
 //Schema types
-#[wasm_bindgen]
 #[derive(Debug, Clone, PartialEq)]
 pub enum ChangeType {
-    Insertion = 0,
-    Deletion = 1,
+    Insertion,
+    Deletion
 }
 
+//start with change
+//pass in graph pointer
+//use non mutable graph 
 //Schema types
-#[wasm_bindgen]
 #[derive(Debug, Clone, PartialEq)]
 pub struct Change {
-    type: ChangeType,
+    typing: ChangeType,
     batch: Vec<Row>
+}
+
+impl Change {
+    pub fn new(typing: ChangeType, batch: Vec<Row>) {
+        Change { typing, batch }
+    }
 }
 
 //View
@@ -193,21 +201,59 @@ impl View {
         Ok(new_sch)
     }
 
-    pub fn insert(&mut self, row: Row) {
-        let key = row.data[self.table_index].clone();
-        self.table.insert(key, row);
+    pub fn insert(&mut self, change_ins: Change, dfg: &DataFlowGraph) {
+        for row in &(change_ins.batch) {
+            let key = row[self.table_index].clone();
+            self.table.insert(key, row.clone());
+        }
+
+        let mut graph_field = (*dfg).data;
+        let parent_index = (*dfg).index_map.get(self.name).unwrap();
+
+        for child_index in graph_field.neighbors(parent_index) {
+             let edge_index = graph_field.find_edge(parent_index, child_index).unwrap();
+             let edge_op = graph_field.edge_weight(edge_index);
+
+             let next_change = edge_op.apply(change_ins);
+             let child_view = graph_field.node_weight_mut(child_index);
+
+            if next_change.batch.is_empty() {
+               let child_view = graph_field.node_weight_mut(child_index);
+
+               child_view.insert(next_change, dfg);
+            }
+        }
     }
 
-    pub fn delete(&mut self, key: Datatype) {
-        self.table.remove(&key);
+    pub fn delete(&mut self, change_del: Change, dfg: &DataFlowGraph) {
+        for row in &(change_del.batch) {
+            let key = row[self.table_index].clone();
+            self.table.remove(key);
+        }
+
+        let mut graph_field = (*dfg).data;
+        let parent_index = (*dfg).index_map.get(self.name).unwrap();
+
+        for child_index in graph_field.neighbors(parent_index) {
+            let edge_index = graph_field.find_edge(parent_index, child_index).unwrap();
+            let edge_op = graph_field.edge_weight(edge_index);
+
+            let next_change = edge_op.apply(change_del);
+             
+            if next_change.batch.is_empty() {
+                let child_view = graph_field.node_weight_mut(child_index);
+
+                child_view.delete(next_change, dfg);
+             }
+        }
     }
 }
 
 //pageload view, view creation without a user 
 #[wasm_bindgen]
 impl View {
-    pub fn newJS(name: String, table_index: usize, col_arr: &JsValue, 
-                 sch_arr: &JsValue) -> View {
+    pub fn new(name: String, table_index: usize, col_arr: &JsValue, 
+               sch_arr: &JsValue) -> View {
         let mut table = HashMap::new();
 
         let mut columns = match Self::set_col(col_arr) {
@@ -227,12 +273,34 @@ impl View {
     }
 }
 
-//batches down 
+pub trait Operator {
+    fn apply(&mut self, prev_change: Change) -> Change; 
+}
+
+#[wasm_bindgen]
+#[derive(Debug)]
+pub struct Selection {
+    col_ind: usize,
+    condition: DataType
+}
+
+impl Operator for Selection {
+    fn apply(&mut self, prev_change: Change) -> Change {
+        let next_change = Change { typing: prev_change.typing, batch: Vec::new()};
+
+        for row in &(prev_change.batch) {
+            if row.data[self.col_ind] == self.condition {
+                next_change.push(row);
+            }
+        }
+    }
+}
 
 #[wasm_bindgen]
 #[derive(Debug)]
 pub struct DataFlowGraph {
-    data: Graph<View, Selection>
+    data: Graph<View, dyn Operator>,
+    index_map: HashMap<String, NodeIndex> 
 }
 
 //writing WITHOUT SCHEMA
@@ -242,10 +310,9 @@ impl fmt::Display for DataFlowGraph {
     }
 }
 
-#[wasm_bindgen]
 impl DataFlowGraph { 
     pub fn process_into_row(inp_view: &View, some_iterable: &JsValue)
-            -> Result<Row>, JsValue> {
+            -> Result<Row, JsValue> {
         let mut row_vec = Vec::new();
         let iterator = js_sys::try_iter(some_iterable)?.ok_or_else(|| {
             "need to pass iterable JS values!"
@@ -258,13 +325,13 @@ impl DataFlowGraph {
 
             let mut ind_row = DataType::None;
             
-            if (*View).schema[count]== SchemaType::Int {
+            if (*inp_view).schema[count]== SchemaType::Int {
                 let insert = x.as_f64();
                 if insert.is_some() {
                     let final_insert = insert.unwrap() as i32;
                     ind_row = DataType::Int(final_insert);
                 }
-            } else if (*View).schema[count] == SchemaType::Text {
+            } else if (*inp_view).schema[count] == SchemaType::Text {
                 let insert = x.as_string();
                 if insert.is_some() {
                     ind_row = DataType::Text(insert.unwrap());
@@ -279,99 +346,52 @@ impl DataFlowGraph {
     }
 }
 
+#[wasm_bindgen]
 impl DataFlowGraph { 
     pub fn new() -> DataFlowGraph {
         let data = Graph::new();
+        let index_map = HashMap::new();
 
-        DataFlowGraph { data }
+        DataFlowGraph { data, index_map }
     }
 
-    pub fn extend(&mut self, parent: View, child: View, operator: Selection) {
+    pub fn extend(&mut self, parent: View, child: View, operator: dyn Operator) {
         let first = self.data.add_node(parent);
+        self.index_map.insert(parent.name.clone(), first.clone());
+
         let second = self.data.add_node(child);
+        self.index_map.insert(child.name.clone(), second.clone());
+
         self.data.add_edge(first, second, operator);
     }
 
-    pub fn insert(&mut self, view_to_edit: &View, row_ins_js: &JsValue) {
+    pub fn process_insert(&mut self, view_string: String, row_ins_js: &JsValue) {
         let mut row_ins_rust = match Self::process_into_row(row_ins_js) {
             Ok(row) => row,
             Err(err) => Row::new(Vec::new()),
         };  
 
-        *View.insert(row_ins_rust);
-
-        for (edge, node) in self.neighbors()
-
-        process_changes(View)
+        let view_to_edit = self.index_map.get(view_string).unwrap();
+        let change_ins = Change::new(ChangeType::Insertion, Vec::new(row_ins_rust));
+        
+        view_to_edit.insert(change_ins, &self);
     }
 
-    pub fn delete(view_to_edit: &View, row_del_js: &JsValue) {
-        let mut row_del_rust = match Self::process_into_vec(row_del_js) {
-            Ok(vec) => vec,
+    pub fn process_delete(&mut self, view_string: &View, row_del_js: &JsValue) {
+        let mut row_del_rust = match Self::process_into_row(row_del_js) {
+            Ok(row) => row,
             Err(err) => Row::new(Vec::new()),
         };  
-    
-    }
 
-    pub fn process_changes {
-
+        let view_to_edit = self.index_map.get(view_string).unwrap();
+        let change_ins = Change::new(ChangeType::Deletion, Vec::new(row_del_rust));
+        
+        view_to_edit.delete(change_ins, &self); 
     }
 
     pub fn render(&self) -> String {
         self.to_string()
     }
-}
-
-pub trait Operator {
-    fn apply(child: &View, update: Update) -> Option<Update>; 
-}
-
-#[wasm_bindgen]
-#[derive(Debug)]
-pub struct Selection {
-    col_ind: usize,
-    condition: DataType
-}
-
-
-
-//webworkers, channels in web assembly
-//row specific operators
-#[wasm_bindgen]
-impl Selection { 
-    pub fn newJS(col_ind: usize, selection: &JsValue) 
-                 -> Selection {
-        let condition = DataType::from(selection);
-
-        Selection { col_ind, condition }
-    }
-
-    pub fn select(&mut self, child_name: String,  parent: View) -> View {
-        let mut child = View {
-            name: child_name,
-            columns: parent.columns,
-            schema: parent.schema,
-            table_index: parent.table_index,
-            table: HashMap::new()
-        };
-        
-        for (key, row) in parent.table.iter() {
-            if row.data[self.col_ind] == self.condition {
-                let row_copy = row.clone();
-                let key = row_copy.data[child.table_index].clone();
-                
-                child.table.insert(key, row_copy);
-            }
-        }
-
-        child
-    }
-}
-
-#[wasm_bindgen]
-#[derive(Debug)]
-pub struct Projection {
-    col_ind: Vec<usize>
 }
 
 
