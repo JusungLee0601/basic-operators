@@ -131,7 +131,7 @@ pub struct Change {
 }
 
 impl Change {
-    pub fn new(typing: ChangeType, batch: Vec<Row>) {
+    pub fn new(typing: ChangeType, batch: Vec<Row>) -> Change {
         Change { typing, batch }
     }
 }
@@ -201,51 +201,36 @@ impl View {
         Ok(new_sch)
     }
 
-    pub fn insert(&mut self, change_ins: Change, dfg: &DataFlowGraph) {
-        for row in &(change_ins.batch) {
-            let key = row[self.table_index].clone();
+    pub fn insert(&mut self, change_ins: Change, dfg: &mut DataFlowGraph) {
+        for row in &change_ins.batch {
+            let key = row.data[self.table_index].clone();
             self.table.insert(key, row.clone());
         }
 
-        let mut graph_field = (*dfg).data;
-        let parent_index = (*dfg).index_map.get(self.name).unwrap();
+        let graph_field = &mut (*dfg).data;
+        let parent_index = *(*dfg).index_map.get(&self.name).unwrap();
 
-        for child_index in graph_field.neighbors(parent_index) {
-             let edge_index = graph_field.find_edge(parent_index, child_index).unwrap();
-             let edge_op = graph_field.edge_weight(edge_index);
+        let mut child_indices = Vec::new();
 
-             let next_change = edge_op.apply(change_ins);
-             let child_view = graph_field.node_weight_mut(child_index);
+        for child_index in (*graph_field).neighbors(parent_index) {
+            child_indices.push(child_index);
+        }
+
+        for child_index in child_indices {
+            let edge_index = (*graph_field).find_edge(parent_index, child_index).unwrap();
+            let edge_op: &Operation = (*graph_field).edge_weight(edge_index).unwrap();
+
+            let next_change = (*edge_op).apply(change_ins.clone());
 
             if next_change.batch.is_empty() {
-               let child_view = graph_field.node_weight_mut(child_index);
+               let child_view = (*graph_field).node_weight_mut(child_index).unwrap();
 
-               child_view.insert(next_change, dfg);
+               (*child_view).insert(next_change, dfg);
             }
         }
     }
 
-    pub fn delete(&mut self, change_del: Change, dfg: &DataFlowGraph) {
-        for row in &(change_del.batch) {
-            let key = row[self.table_index].clone();
-            self.table.remove(key);
-        }
-
-        let mut graph_field = (*dfg).data;
-        let parent_index = (*dfg).index_map.get(self.name).unwrap();
-
-        for child_index in graph_field.neighbors(parent_index) {
-            let edge_index = graph_field.find_edge(parent_index, child_index).unwrap();
-            let edge_op = graph_field.edge_weight(edge_index);
-
-            let next_change = edge_op.apply(change_del);
-             
-            if next_change.batch.is_empty() {
-                let child_view = graph_field.node_weight_mut(child_index);
-
-                child_view.delete(next_change, dfg);
-             }
-        }
+    pub fn delete(&mut self, change_del: Change, dfg: &mut DataFlowGraph) {
     }
 }
 
@@ -274,7 +259,17 @@ impl View {
 }
 
 pub trait Operator {
-    fn apply(&mut self, prev_change: Change) -> Change; 
+    fn apply(&self, prev_change: Change) -> Change; 
+}
+
+#[wasm_bindgen]
+#[derive(Debug)]
+pub enum Operation {
+    Selection
+}
+
+impl Operator for Operation {
+    fn apply(&self, prev_change: Change) -> Change { prev_change }
 }
 
 #[wasm_bindgen]
@@ -285,21 +280,23 @@ pub struct Selection {
 }
 
 impl Operator for Selection {
-    fn apply(&mut self, prev_change: Change) -> Change {
+    fn apply(&self, prev_change: Change) -> Change {
         let next_change = Change { typing: prev_change.typing, batch: Vec::new()};
 
         for row in &(prev_change.batch) {
             if row.data[self.col_ind] == self.condition {
-                next_change.push(row);
+                next_change.batch.push(*row);
             }
         }
+
+        next_change
     }
 }
 
 #[wasm_bindgen]
 #[derive(Debug)]
 pub struct DataFlowGraph {
-    data: Graph<View, dyn Operator>,
+    data: Graph<View, Operation>,
     index_map: HashMap<String, NodeIndex> 
 }
 
@@ -355,7 +352,7 @@ impl DataFlowGraph {
         DataFlowGraph { data, index_map }
     }
 
-    pub fn extend(&mut self, parent: View, child: View, operator: dyn Operator) {
+    pub fn extend(&mut self, parent: View, child: View, operator: Operation) {
         let first = self.data.add_node(parent);
         self.index_map.insert(parent.name.clone(), first.clone());
 
@@ -366,27 +363,29 @@ impl DataFlowGraph {
     }
 
     pub fn process_insert(&mut self, view_string: String, row_ins_js: &JsValue) {
-        let mut row_ins_rust = match Self::process_into_row(row_ins_js) {
+        let view_to_edit = self.data.node_weight(*self.index_map.get(&view_string).unwrap()).unwrap();
+
+        let mut row_ins_rust = match Self::process_into_row(view_to_edit,row_ins_js) {
             Ok(row) => row,
             Err(err) => Row::new(Vec::new()),
         };  
 
-        let view_to_edit = self.index_map.get(view_string).unwrap();
-        let change_ins = Change::new(ChangeType::Insertion, Vec::new(row_ins_rust));
+        let change_ins = Change::new(ChangeType::Insertion, vec![row_ins_rust]);
         
-        view_to_edit.insert(change_ins, &self);
+        view_to_edit.insert(change_ins, &mut self);
     }
 
-    pub fn process_delete(&mut self, view_string: &View, row_del_js: &JsValue) {
-        let mut row_del_rust = match Self::process_into_row(row_del_js) {
+    pub fn process_delete(&mut self, view_string: String, row_del_js: &JsValue) {
+        let view_to_edit = self.data.node_weight(*self.index_map.get(&view_string).unwrap()).unwrap();
+
+        let mut row_del_rust = match Self::process_into_row(view_to_edit, row_del_js) {
             Ok(row) => row,
             Err(err) => Row::new(Vec::new()),
         };  
 
-        let view_to_edit = self.index_map.get(view_string).unwrap();
-        let change_ins = Change::new(ChangeType::Deletion, Vec::new(row_del_rust));
+        let change_ins = Change::new(ChangeType::Deletion, vec![row_del_rust]);
         
-        view_to_edit.delete(change_ins, &self); 
+        view_to_edit.delete(change_ins, &mut self); 
     }
 
     pub fn render(&self) -> String {
