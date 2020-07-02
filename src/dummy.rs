@@ -1,9 +1,6 @@
 mod utils;
 extern crate js_sys;
 
-#[macro_use]
-extern crate serde_derive;
-
 use wasm_bindgen::prelude::*;
 use std::fmt;
 use std::collections::HashMap;
@@ -11,10 +8,6 @@ use petgraph::graph::Graph;
 use petgraph::graph::NodeIndex;
 use std::cell::{RefCell, RefMut};
 use std::cell::Ref;
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
-//use serde_json::Result;
-
 
 // SOME IMPORTANT ASSUMPTIONS
 
@@ -38,8 +31,6 @@ static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 //Data
 #[derive(Debug)]
 #[derive(Clone, Hash, Eq, PartialEq)]
-#[derive(Serialize, Deserialize)]
-#[serde(tag = "t", content = "c")]
 pub enum DataType {
     None,
     Int(i32),
@@ -62,7 +53,6 @@ impl From<&JsValue> for DataType {
 //Schema types
 #[wasm_bindgen]
 #[derive(Debug, Clone, PartialEq)]
-#[derive(Serialize, Deserialize)]
 pub enum SchemaType {
     None = 0,
     Int = 1,
@@ -150,26 +140,10 @@ impl Change {
     }
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct ViewJSON {
-    name: String,
-    columns: Vec<String>,
-    schema: Vec<SchemaType>,
-    table_index: usize,
-}
-
-//from conversion, f64->SchemaType
-impl From<ViewJSON> for View {
-    fn from(item: ViewJSON) -> Self {
-        let view = View::newJSON(item.name, item.table_index, item.columns, item.schema);
-
-        view
-    }
-}
-
 //View
 #[wasm_bindgen]
 #[derive(Debug)]
+#[derive(Serialize, Deserialize)]
 pub struct View {
     name: String,
     columns: Vec<String>,
@@ -197,13 +171,6 @@ impl fmt::Display for View {
 
 //processing fnss to set columns and schema, view mod fns
 impl View {
-    pub fn newJSON(name: String, table_index: usize, columns: Vec<String>, 
-        schema: Vec<SchemaType>) -> View {
-        let table = HashMap::new();
-
-        View {name, table_index, columns, schema, table}
-    }
-
     pub fn set_col(some_iterable: &JsValue) 
                    -> Result<Vec<String>, JsValue> {
         let mut new_col = Vec::new();
@@ -271,7 +238,7 @@ impl View {
 //pageload view, view creation without a user 
 #[wasm_bindgen]
 impl View {
-    pub fn newJS(name: String, table_index: usize, col_arr: &JsValue, 
+    pub fn new(name: String, table_index: usize, col_arr: &JsValue, 
                sch_arr: &JsValue) -> View {
         let mut table = HashMap::new();
 
@@ -292,37 +259,34 @@ impl View {
     }
 }
 
+{
+    "views": [{ ... view 0 dict ...}, { ... view 1 dict ...}, ...],
+    "edges": [{ "from": 2, "to": 3, "operator": { ... op dict ... }, ...]
+ }
+
 //use ids in JSOn object
 //be careful with schema
 pub trait Operator {
     fn apply(&self, prev_change: Change) -> Change; 
 }
 
+#[wasm_bindgen]
 #[derive(Debug)]
-#[derive(Serialize, Deserialize)]
-#[serde(tag = "type")]
 pub enum Operation {
-    Selector(Selection),
-    Projector(Projection)
+    Select(Selection),
+    Project(Projection)
 }
 
 //match self
 impl Operator for Operation {
-    fn apply(&self, prev_change: Change) -> Change { 
-        match self {
-            Operation::Selector(op) => op.apply(prev_change),
-            Operation::Projector(op) => op.apply(prev_change),
-        }
-    }
+    fn apply(&self, prev_change: Change) -> Change { prev_change }
 }
 
 #[wasm_bindgen]
 #[derive(Debug)]
-#[derive(Serialize, Deserialize)]
-#[serde(tag = "type")]
 pub struct Selection {
     col_ind: usize,
-    condition: DataType,
+    condition: DataType
 }
 
 impl Operator for Selection {
@@ -348,8 +312,6 @@ impl Selection {
 
 #[wasm_bindgen]
 #[derive(Debug)]
-#[derive(Serialize, Deserialize)]
-#[serde(tag = "type")]
 pub struct Projection {
     columns: Vec<usize>,
 }
@@ -361,8 +323,8 @@ impl Operator for Projection {
         for row in &(prev_change.batch) {
             let mut changed_row = Row::new(Vec::new());
 
-            for index in &self.columns {
-                changed_row.data.push(row.data[*index].clone());
+            for index in self.columns {
+                changed_row.data.push(row.data[index]);
             }
 
             next_change.batch.push(changed_row);
@@ -453,51 +415,28 @@ impl DataFlowGraph {
     }
 }
 
+// {nodes, edges}
+
 #[wasm_bindgen]
 impl DataFlowGraph { 
     pub fn new(json: String) -> DataFlowGraph {
-        let mut data = Graph::new();
-        let mut index_map = HashMap::new();
-        
-        let obj: Value = serde_json::from_str(&json).unwrap();
-
-        let nodes: Vec<Value> = serde_json::from_value(obj["nodes"].clone()).unwrap();
-
-        //can't deserialize into struct map??
-        for node in nodes {
-            let v: ViewJSON = serde_json::from_value(node).unwrap();
-            let name = v.name.clone();
-            let view = View::from(v);
-            let index = data.add_node(RefCell::new(view));
-            index_map.insert(name, index.clone());
-        } 
-
-        let edges: Vec<Value> = serde_json::from_value(obj["edges"].clone()).unwrap();
-
-        for edge in &edges {
-            let pi: usize = serde_json::from_value(edge["parentindex"].clone()).unwrap();
-            let pni = NodeIndex::new(pi);
-            let ci: usize = serde_json::from_value(edge["childindex"].clone()).unwrap();
-            let cni = NodeIndex::new(ci);
-            let op: Operation = serde_json::from_value(edge["childindex"].clone()).unwrap();
-
-            data.add_edge(pni, cni, op);
-        }
+        let data = Graph::new();
+        let index_map = HashMap::new();
 
         DataFlowGraph { data, index_map }
     }
 
-    // pub fn extend(&mut self, parent: View, child: View, operator: Operation) {
-    //     let first_name = parent.name.clone();
-    //     let first = self.data.add_node(RefCell::new(parent));
-    //     self.index_map.insert(first_name, first.clone());
+    pub fn extend(&mut self, parent: View, child: View, operator: Operation) {
+        let first_name = parent.name.clone();
+        let first = self.data.add_node(RefCell::new(parent));
+        self.index_map.insert(first_name, first.clone());
 
-    //     let second_name = child.name.clone();
-    //     let second = self.data.add_node(RefCell::new(child));
-    //     self.index_map.insert(second_name, second.clone());
+        let second_name = child.name.clone();
+        let second = self.data.add_node(RefCell::new(child));
+        self.index_map.insert(second_name, second.clone());
 
-    //     self.data.add_edge(first, second, operator);
-    // }
+        self.data.add_edge(first, second, operator);
+    }
 
     pub fn process_insert(&mut self, view_string: String, row_ins_js: &JsValue) {
         let view_name = *(self.index_map.get(&view_string).unwrap());
