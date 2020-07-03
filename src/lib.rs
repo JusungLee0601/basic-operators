@@ -13,6 +13,7 @@ use std::cell::{RefCell, RefMut};
 use std::cell::Ref;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use web_sys::console;
 //use serde_json::Result;
 
 
@@ -63,10 +64,11 @@ impl From<&JsValue> for DataType {
 #[wasm_bindgen]
 #[derive(Debug, Clone, PartialEq)]
 #[derive(Serialize, Deserialize)]
+#[serde(tag = "t")]
 pub enum SchemaType {
-    None = 0,
-    Int = 1,
-    Text = 2
+    None,
+    Int,
+    Text
 }
 
 //from conversion, f64->SchemaType
@@ -300,7 +302,7 @@ pub trait Operator {
 
 #[derive(Debug)]
 #[derive(Serialize, Deserialize)]
-#[serde(tag = "type")]
+#[serde(tag = "type", content = "c")]
 pub enum Operation {
     Selector(Selection),
     Projector(Projection)
@@ -319,7 +321,6 @@ impl Operator for Operation {
 #[wasm_bindgen]
 #[derive(Debug)]
 #[derive(Serialize, Deserialize)]
-#[serde(tag = "type")]
 pub struct Selection {
     col_ind: usize,
     condition: DataType,
@@ -349,7 +350,6 @@ impl Selection {
 #[wasm_bindgen]
 #[derive(Debug)]
 #[derive(Serialize, Deserialize)]
-#[serde(tag = "type")]
 pub struct Projection {
     columns: Vec<usize>,
 }
@@ -456,30 +456,38 @@ impl DataFlowGraph {
 #[wasm_bindgen]
 impl DataFlowGraph { 
     pub fn new(json: String) -> DataFlowGraph {
+        console::log_1(&"Hello using web-sys".into());
         let mut data = Graph::new();
         let mut index_map = HashMap::new();
         
         let obj: Value = serde_json::from_str(&json).unwrap();
+        console::log_1(&"obj".into());
 
         let nodes: Vec<Value> = serde_json::from_value(obj["nodes"].clone()).unwrap();
+        console::log_1(&"nodes".into());
 
         //can't deserialize into struct map??
         for node in nodes {
+            console::log_1(&"begin node".into());
+            console::log_1(&"viewJSON1".into());
             let v: ViewJSON = serde_json::from_value(node).unwrap();
+            console::log_1(&"viewJSON".into());
             let name = v.name.clone();
             let view = View::from(v);
             let index = data.add_node(RefCell::new(view));
             index_map.insert(name, index.clone());
+            console::log_1(&"node".into());
         } 
 
         let edges: Vec<Value> = serde_json::from_value(obj["edges"].clone()).unwrap();
+        console::log_1(&"edges".into());
 
         for edge in &edges {
             let pi: usize = serde_json::from_value(edge["parentindex"].clone()).unwrap();
             let pni = NodeIndex::new(pi);
             let ci: usize = serde_json::from_value(edge["childindex"].clone()).unwrap();
             let cni = NodeIndex::new(ci);
-            let op: Operation = serde_json::from_value(edge["childindex"].clone()).unwrap();
+            let op: Operation = serde_json::from_value(edge["operation"].clone()).unwrap();
 
             data.add_edge(pni, cni, op);
         }
