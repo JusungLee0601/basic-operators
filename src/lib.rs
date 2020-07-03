@@ -4,6 +4,9 @@ extern crate js_sys;
 #[macro_use]
 extern crate serde_derive;
 
+extern crate wasm_bindgen_test;
+use wasm_bindgen_test::*;
+
 use wasm_bindgen::prelude::*;
 use std::fmt;
 use std::collections::HashMap;
@@ -547,4 +550,8 @@ impl DataFlowGraph {
     }
 }
 
-
+#[wasm_bindgen_test]
+fn unit_test() {
+    // this test can access private members of structs defined in this module (file)
+    assert_eq!(1 + 1, 2);
+}
