@@ -537,6 +537,14 @@ impl DataFlowGraph {
     pub fn render(&self) -> String {
         self.to_string()
     }
+
+    pub fn node_count(&self) -> usize {
+        self.data.node_count()
+    }
+
+    pub fn edge_count(&self) -> usize {
+        self.data.node_count()
+    }
 }
 
 
