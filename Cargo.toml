@@ -15,6 +15,7 @@ petgraph = "0.5.1"
 serde = "^1.0.59"
 serde_derive = "^1.0.59"
 serde_json = "1.0"
+wasm-bindgen-test = "0.3.13"
 
 [dependencies.wasm-bindgen]
 version = "^0.2"
@@ -36,9 +37,6 @@ console_error_panic_hook = { version = "0.1.6", optional = true }
 #
 # Unfortunately, `wee_alloc` requires nightly Rust when targeting wasm for now.
 wee_alloc = { version = "0.4.5", optional = true }
-
-[dev-dependencies]
-wasm-bindgen-test = "0.3.13"
 
 [profile.release]
 # Tell `rustc` to optimize for small code size.
