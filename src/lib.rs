@@ -64,7 +64,6 @@ impl From<&JsValue> for DataType {
 #[wasm_bindgen]
 #[derive(Debug, Clone, PartialEq)]
 #[derive(Serialize, Deserialize)]
-#[serde(tag = "t")]
 pub enum SchemaType {
     None,
     Int,
@@ -302,7 +301,7 @@ pub trait Operator {
 
 #[derive(Debug)]
 #[derive(Serialize, Deserialize)]
-#[serde(tag = "type", content = "c")]
+#[serde(tag = "t", content = "c")]
 pub enum Operation {
     Selector(Selection),
     Projector(Projection)
@@ -484,13 +483,19 @@ impl DataFlowGraph {
 
         for edge in &edges {
             let pi: usize = serde_json::from_value(edge["parentindex"].clone()).unwrap();
+            console::log_1(&"pi".into());
             let pni = NodeIndex::new(pi);
             let ci: usize = serde_json::from_value(edge["childindex"].clone()).unwrap();
+            console::log_1(&"ci".into());
             let cni = NodeIndex::new(ci);
             let op: Operation = serde_json::from_value(edge["operation"].clone()).unwrap();
+            console::log_1(&"operators".into());
 
             data.add_edge(pni, cni, op);
+            console::log_1(&"edge".into());
         }
+
+        console::log_1(&"finished".into());
 
         DataFlowGraph { data, index_map }
     }

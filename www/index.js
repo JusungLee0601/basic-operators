@@ -25,7 +25,7 @@ var dummygraph = {
         "parentindex": 0,
         "childindex": 1,
         "operation": {
-            "t": "Selection",
+            "t": "Selector",
             "c": {
                 "col_ind": 0,
                 "condition": {
@@ -38,7 +38,7 @@ var dummygraph = {
         "parentindex": 1,
         "childindex": 2,
         "operation": {
-            "t": "Projection",
+            "t": "Projector",
             "c": {
                 "columns": [0]
             }
@@ -82,5 +82,4 @@ const addEntry = () => {
 
 document.getElementById("refresh").addEventListener("click", event => {refreshEntries();});
 document.getElementById("send").addEventListener("click", event => {addEntry();});
-document.getElementById("select").addEventListener("click", event => {select();});
 
