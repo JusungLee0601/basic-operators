@@ -4,8 +4,8 @@ extern crate js_sys;
 #[macro_use]
 extern crate serde_derive;
 
-extern crate wasm_bindgen_test;
-use wasm_bindgen_test::*;
+//extern crate wasm_bindgen_test;
+//use wasm_bindgen_test::*;
 
 use wasm_bindgen::prelude::*;
 use std::fmt;
@@ -35,9 +35,9 @@ use web_sys::console;
 
 // When the `wee_alloc` feature is enabled, use `wee_alloc` as the global
 // allocator.
-#[cfg(feature = "wee_alloc")]
-#[global_allocator]
-static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
+// #[cfg(feature = "wee_alloc")]
+// #[global_allocator]
+// static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
 //Data
 #[derive(Debug)]
@@ -135,7 +135,8 @@ impl Row {
 #[derive(Debug, Clone, PartialEq)]
 pub enum ChangeType {
     Insertion,
-    Deletion
+    Deletion,
+    Update
 }
 
 //start with change
@@ -243,10 +244,23 @@ impl View {
         Ok(new_sch)
     }
 
-    pub fn insert(&mut self, change_ins: Change, dfg: &DataFlowGraph) {
+    pub fn change_table(&mut self, change_ins: Change, dfg: &DataFlowGraph) {
         for row in &change_ins.batch {
-            let key = row.data[self.table_index].clone();
-            self.table.insert(key, row.clone());
+            match change_ins.typing {
+                ChangeType::Insertion => {
+                    let key = row.data[self.table_index].clone();
+                    self.table.insert(key, row.clone());
+                },
+                ChangeType::Deletion => {
+                    let key = row.data[self.table_index].clone();
+                    self.table.remove(key);
+                },
+                ChangeType::Update => {
+                    let key = row.data[self.table_index].clone();
+                    self.table.remove(key);
+                    self.table.insert(key, row.clone());
+                },
+            }
         }
 
         let graph = &(*dfg).data;
@@ -263,7 +277,7 @@ impl View {
 
             if !next_change.batch.is_empty() {
                 let mut child_view = (graph.node_weight(child_index).unwrap()).borrow_mut();
-                (*child_view).insert(next_change, dfg);
+                (*child_view).change_table(next_change, dfg);
             }
         }
     }
@@ -407,6 +421,41 @@ impl Projection {
 
 #[wasm_bindgen]
 #[derive(Debug)]
+#[derive(Serialize, Deserialize)]
+pub struct Aggregation {
+    column_ind: usize,
+    current_sum: i32
+}
+
+//incremental aggregation i guess
+//what about duplication elimination??
+impl Operator for Aggregation {
+    fn apply(&self, prev_change: Change) -> Change {
+        let mut next_change = Change { typing: ChangeType::Update, batch: Vec::new()};
+        
+        for row in &(prev_change.batch) {
+            match prev_change.typing {
+                ChangeType::Insertion => {
+                    self.current_sum = self.current_sum + row.data[self.col_ind];
+                }
+                ChangeType::Deletion => self.current_sum = self.current_sum - row.data[self.col_ind];
+                ChangeType::Update => 
+            }
+            let mut changed_row = Row::new(Vec::new());
+
+            for index in &self.columns {
+                changed_row.data.push(row.data[*index].clone());
+            }
+
+            next_change.batch.push(changed_row);
+        }
+
+        next_change
+    }
+}
+
+#[wasm_bindgen]
+#[derive(Debug)]
 pub struct DataFlowGraph {
     data: Graph<RefCell<View>, Operation>,
     index_map: HashMap<String, NodeIndex> 
@@ -515,6 +564,7 @@ impl DataFlowGraph {
     //     self.data.add_edge(first, second, operator);
     // }
 
+    //can you guarantee one operator between views 
     pub fn process_insert(&mut self, view_string: String, row_ins_js: &JsValue) {
         let view_name = *(self.index_map.get(&view_string).unwrap());
         let mut view_to_edit = self.data.node_weight(view_name).unwrap().borrow_mut();
@@ -526,7 +576,7 @@ impl DataFlowGraph {
 
         let change_ins = Change::new(ChangeType::Insertion, vec![row_ins_rust]);
         
-        view_to_edit.insert(change_ins, self);
+        view_to_edit.change_table(change_ins, self);
     }
 
     // pub fn process_delete(&mut self, view_string: String, row_del_js: &JsValue) {
@@ -555,8 +605,10 @@ impl DataFlowGraph {
     }
 }
 
-#[wasm_bindgen_test]
-fn unit_test() {
-    // this test can access private members of structs defined in this module (file)
-    assert_eq!(1 + 1, 2);
-}
+// #[wasm_bindgen_test]
+// fn unit_test() {
+//     // this test can access private members of structs defined in this module (file)
+//     assert_eq!(1 + 1, 2);
+// }
+
+

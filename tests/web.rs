@@ -5,6 +5,7 @@
 extern crate wasm_bindgen_test;
 use wasm_bindgen_test::*;
 use noria_clientside::DataFlowGraph;
+wasm_bindgen_test_configure!(run_in_browser);
 
 #[wasm_bindgen_test]
 fn create_simple_graph() {
@@ -29,7 +30,7 @@ fn create_simple_graph() {
             "parentindex": 0,
             "childindex": 1,
             "operation": {
-                "t": "Selection",
+                "t": "Selector",
                 "c": {
                     "col_ind": 0,
                     "condition": {
@@ -43,7 +44,7 @@ fn create_simple_graph() {
             "parentindex": 1,
             "childindex": 2,
             "operation": {
-                "t": "Projection",
+                "t": "Projector",
                 "c": {
                     "columns": [0]
                 }
