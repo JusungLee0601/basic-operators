@@ -253,11 +253,11 @@ impl View {
                 },
                 ChangeType::Deletion => {
                     let key = row.data[self.table_index].clone();
-                    self.table.remove(key);
+                    //self.table.remove(key);
                 },
                 ChangeType::Update => {
                     let key = row.data[self.table_index].clone();
-                    self.table.remove(key);
+                    //self.table.remove(key);
                     self.table.insert(key, row.clone());
                 },
             }
@@ -434,18 +434,18 @@ impl Operator for Aggregation {
         let mut next_change = Change { typing: ChangeType::Update, batch: Vec::new()};
         
         for row in &(prev_change.batch) {
-            match prev_change.typing {
-                ChangeType::Insertion => {
-                    self.current_sum = self.current_sum + row.data[self.col_ind];
-                }
-                ChangeType::Deletion => self.current_sum = self.current_sum - row.data[self.col_ind];
-                ChangeType::Update => 
-            }
+            // match prev_change.typing {
+            //     ChangeType::Insertion => {
+            //         self.current_sum = self.current_sum + row.data[self.col_ind];
+            //     }
+            //     ChangeType::Deletion => self.current_sum = self.current_sum - row.data[self.col_ind];
+            //     ChangeType::Update => 
+            // }
             let mut changed_row = Row::new(Vec::new());
 
-            for index in &self.columns {
-                changed_row.data.push(row.data[*index].clone());
-            }
+            // for index in &self.columns {
+            //     changed_row.data.push(row.data[*index].clone());
+            // }
 
             next_change.batch.push(changed_row);
         }
