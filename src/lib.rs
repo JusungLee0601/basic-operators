@@ -313,7 +313,9 @@ pub trait Operator {
 pub enum Operation {
     Selector(Selection),
     Projector(Projection),
-    Aggregator(Aggregation)
+    Aggregator(Aggregation),
+    Root(Rootor),
+    Leaf(Leafor),
 }
 
 //match self
@@ -323,6 +325,8 @@ impl Operator for Operation {
             Operation::Selector(op) => op.apply(prev_change),
             Operation::Projector(op) => op.apply(prev_change),
             Operation::Aggregator(op) => op.apply(prev_change),
+            Operation::Rootor(op) => op.apply(prev_change),
+            Operation::Leafor(op) => op.apply(prev_change),
         }
     }
 }
@@ -425,45 +429,125 @@ impl Projection {
 }
 
 pub enum FuncType {
-    SUM,
+    SUM(i32),
     COUNT
 }
 
-//ASSUMING ONLY SUM, could make a struct for functions
 #[wasm_bindgen]
 #[derive(Debug)]
 #[derive(Serialize, Deserialize)]
 pub struct Aggregation {
     group_by_col: Vec<usize>,
     function: FuncType,
+    key_index: usize,
+    state: HashMap<DataType, Row>,
 }
 
-//incremental aggregation i guess
-//what about duplication elimination??
+//implements hard coded length for count, no sum or func matching yet
 impl Operator for Aggregation {
-    fn apply(&self, prev_change: Vec<Change>) -> Change {
+    fn apply(&self, prev_change_vec: Vec<Change>) -> Vec<Change> {
+        let mut next_change_vec = Vec::new();
 
-
-        let mut next_change = Change { typing: ChangeType::Update, batch: Vec::new()};
-        
-        for row in &(prev_change.batch) {
-            match prev_change.typing {
+        //multiple Insertions and Deletions
+        for change in prev_change_vec {
+            match change.typing {
                 ChangeType::Insertion => {
-                    self.current_sum = self.current_sum + row.data[self.col_ind];
+                    //multiple rows in a single Change
+                    for row in &(change.batch) {
+                        for val in self.state.values_mut() {
+                            let mut matching = true;
+                            let mut count = 0;
+
+                            for index in self.group_by_col {
+                                if row[index] != val.data[count] {
+                                    matching = false;
+                                }
+
+                                count = count + 1;
+                            } 
+
+                            //matches, so increment by count
+                            if matching {
+                                //matched row in state
+                                let row_to_incr = self.state.get_mut(val.data[self.key_index]).unwrap();
+
+                                //sends deletion change downstream
+                                let delete_old = Change::new(ChangeType::Deletion, &row_to_incr.clone()))
+                                next_change_vec.push(delete_old);
+
+                                //increments count in state
+                                let len = &row_to_incr.data.len();
+                                let new_count = match &row_to_incr.data[len - 1] {
+                                    DataType::Int(count) => count + 1,
+                                }
+                                &row_to_incr.data[len - 1] = DataType::Int(new_count);
+
+                                //sends insertion change downstream
+                                let insert_new = Change::new(ChangeType::Insertion, &row_to_incr.clone()))
+                                next_change_vec.push(insert_new);
+                            //doesn't match, so insert new
+                            } else {
+                                //create new row to insert with only the group by columns
+                                let mut new_row_vec = Vec::new()
+
+                                for index in self.group_by_col {
+                                    new_row_vec.push(row[index])
+                                } 
+
+                                let new_row = Row::new(new_row_vec);
+
+                                //apply changes to operator's internal state
+                                self.state.insert(new_row[key_index], new_row.clone())
+                            
+                                //send insertion change downstream
+                                let new_group_change = Change::new(ChangeType::Insertion, new_row.clone())
+                                next_change_vec.push(new_group_change); 
+                            }
+                        }
+                    }
                 }
-                ChangeType::Deletion => self.current_sum = self.current_sum - row.data[self.col_ind];
-                ChangeType::Update => 
+                //In this model, we assume that deletions will always match with one aggregated row
+                ChangeType::Deletion => {
+                    //multiple rows in a single Change
+                    for row in &(change.batch) {
+                        for val in self.state.values_mut() {
+                            let mut matching = true;
+                            let mut count = 0;
+
+                            for index in self.group_by_col {
+                                if row[index] != val.data[count] {
+                                    matching = false;
+                                }
+
+                                count = count + 1;
+                            } 
+
+                            //matches, so increment by count
+                            if matching {
+                                //matched row in state
+                                let row_to_decr = self.state.get_mut(val.data[self.key_index]).unwrap();
+
+                                //sends deletion change downstream
+                                let delete_old = Change::new(ChangeType::Deletion, &row_to_decr.clone()))
+                                next_change_vec.push(delete_old);
+
+                                //decrements count in state
+                                let len = &row_to_decr.data.len();
+                                let new_count = match &row_to_decr.data[len - 1] {
+                                    DataType::Int(count) => count + 1,
+                                }
+                                &row_to_decr.data[len - 1] = DataType::Int(new_count);
+
+                                //sends insertion change downstream
+                                let insert_new = Change::new(ChangeType::Insertion, &row_to_decr.clone()))
+                                next_change_vec.push(insert_new);
+                            } 
+                        }
+                    }
+                }
             }
-            let mut changed_row = Row::new(Vec::new());
 
-            // for index in &self.columns {
-            //     changed_row.data.push(row.data[*index].clone());
-            // }
-
-            next_change.batch.push(changed_row);
-        }
-
-        next_change
+        next_change_vec
     }
 }
 
