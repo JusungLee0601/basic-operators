@@ -56,3 +56,77 @@ fn create_simple_graph() {
     assert_eq!(g.node_count(), 3);
     assert_eq!(g.edge_count(), 2);
 }
+
+#[wasm_bindgen_test]
+fn aggregation_count() {
+    // Graph:
+    //  1) root node (article_id, article_tag, article_author, article_votecount)
+    //  2) aggregation node, group by (article_tag, article_author), aggregate over
+    //     article_votecount
+    //  3) leaf node, keyed by article_author
+    //
+    // Purpose: look up the articles by a given author with vote counts by tag.
+    // Equivalent SQL query: SELECT article_author, article_tag, count(article_votecount)
+    //                          FROM table
+    //                          WHERE article_author = ?
+    //                          GROUP BY article_tag, article_author;
+    //let graph = r##"..."##;
+
+    let g = DataFlowGraph::new(graph.to_owned());
+    assert_eq!(g.node_count(), 3);
+    assert_eq!(g.edge_count(), 2);
+
+    // Inputs: (article_id, article_tag, article_author, article_votecount)
+    // 1,"cats","bob",5
+    // 2,"cats","alice",10
+    // 3,"cats","alice",7
+    // 4,"dogs","bob",2
+    // 5,"dogs","alice",9
+    //
+    // Expected results:
+    //
+    // Look up for "alice":
+    //  ("alice","cats",2)
+    //  ("alice","dogs",1)
+    //
+    // Lookup for "bob":
+    //  ("bob","cats",1)
+    //  ("bob","dogs",1)
+}
+
+#[wasm_bindgen_test]
+fn aggregation_sum() {
+    // Graph:
+    //  1) root node (article_id, article_tag, article_author, article_votecount)
+    //  2) aggregation node, group by (article_tag, article_author), aggregate over
+    //     article_votecount
+    //  3) leaf node, keyed by article_author
+    //
+    // Purpose: look up the articles by a given author with vote summed by tag.
+    // Equivalent SQL query: SELECT article_author, article_tag, sum(article_votecount)
+    //                          FROM table
+    //                          WHERE article_author = ?
+    //                          GROUP BY article_tag, article_author;
+    //let graph = r##"..."##;
+
+    let g = DataFlowGraph::new(graph.to_owned());
+    assert_eq!(g.node_count(), 3);
+    assert_eq!(g.edge_count(), 2);
+
+    // Inputs: (article_id, article_tag, article_author, article_votecount)
+    // 1,"cats","bob",5
+    // 2,"cats","alice",10
+    // 3,"cats","alice",7
+    // 4,"dogs","bob",2
+    // 5,"dogs","alice",9
+    //
+    // Expected results:
+    //
+    // Look up for "alice":
+    //  ("alice","cats",17)
+    //  ("alice","dogs",9)
+    //
+    // Lookup for "bob":
+    //  ("bob","cats",5)
+    //  ("bob","dogs",2)
+}
