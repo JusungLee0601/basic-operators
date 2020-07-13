@@ -17,21 +17,6 @@ use std::cell::Ref;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use web_sys::console;
-//use serde_json::Result;
-
-
-// SOME IMPORTANT ASSUMPTIONS
-
-// + I don't differentiate between Tables and Views. 
-// + Operators do not generate views. Instead, views are made first and 
-//   then connected with an operator. This assumes that the entire graph is
-//   built, and then filled in with relevant columns.
-// + Honestly feels so foreign. Strange to have to "build" the structure, but
-//   makes sense in what actually gets sent to a client (code), and I guess the 
-//   the amount itself is relatively small compared to what's actually held
-//   server side.
-// + I think the above can be replaced with a JSON file building the relevant 
-//   tree, and then adding data through calls?? 
 
 // When the `wee_alloc` feature is enabled, use `wee_alloc` as the global
 // allocator.
@@ -103,6 +88,7 @@ impl fmt::Display for DataType {
 #[wasm_bindgen]     
 #[derive(Debug)]
 #[derive(Hash, Eq, PartialEq, Clone)]
+#[derive(Serialize, Deserialize)]
 pub struct Row {
     data: Vec<DataType>
 }
@@ -243,34 +229,36 @@ impl View {
         Ok(new_sch)
     }
 
-    pub fn change_table(&mut self, change_ins: Vec<Change>, dfg: &DataFlowGraph) {
-        for row in &change_ins.batch {
-            match change_ins.typing {
-                ChangeType::Insertion => {
-                    let key = row.data[self.table_index].clone();
-                    self.table.insert(key, row.clone());
-                },
-                ChangeType::Deletion => {
-                    let key = row.data[self.table_index].clone();
-                    //self.table.remove(key);
-                },
+    pub fn change_table(&mut self, change_vec: Vec<Change>, dfg: &mut DataFlowGraph) {
+        for change in &change_vec {
+            for row in &change.batch {
+                match change.typing {
+                    ChangeType::Insertion => {
+                        let key = row.data[self.table_index].clone();
+                        self.table.insert(key, row.clone());
+                    },
+                    ChangeType::Deletion => {
+                        let key = row.data[self.table_index].clone();
+                        self.table.remove(&key);
+                    },
+                }
             }
         }
 
-        let graph = &(*dfg).data;
         let parent_index = *(*dfg).index_map.get(&self.name).unwrap();
+        let neighbors_iterator = (*dfg).data.neighbors(parent_index).clone();
 
         //let mut child_indices = Vec::new();
 
-        for child_index in graph.neighbors(parent_index) {
+        for child_index in neighbors_iterator {
             let next_change = {
-                let edge_index = graph.find_edge(parent_index, child_index).unwrap();
-                let edge_op: &Operation = (*dfg).data.edge_weight(edge_index).unwrap();
-                (*edge_op).apply(change_ins.clone())
+                let edge_index = (*dfg).data.find_edge(parent_index, child_index).unwrap();
+                let edge_op: &mut Operation = (*dfg).data.edge_weight_mut(edge_index).unwrap();
+                (*edge_op).apply(change_vec.clone())
             };
 
-            if !next_change.batch.is_empty() {
-                let mut child_view = (graph.node_weight(child_index).unwrap()).borrow_mut();
+            if !next_change.is_empty() {
+                let mut child_view = ((*dfg).data.node_weight(child_index).unwrap()).borrow_mut();
                 (*child_view).change_table(next_change, dfg);
             }
         }
@@ -304,7 +292,28 @@ impl View {
 //use ids in JSOn object
 //be careful with schema
 pub trait Operator {
-    fn apply(&self, prev_change: Change) -> Vec<Change>; 
+    fn apply(&mut self, prev_change: Vec<Change>) -> Vec<Change>; 
+
+    fn process_change(&mut self, change: Vec<Change>, dfg: &mut DataFlowGraph) -> Vec<Change> { 
+        let processed_change = self.apply(change),
+        let parent_index = *(*dfg).index_map.get(&self.name).unwrap();
+        let neighbors_iterator = (*dfg).data.neighbors(parent_index).clone();
+
+        //let mut child_indices = Vec::new();
+
+        for child_index in neighbors_iterator {
+            let next_change = {
+                let edge_index = (*dfg).data.find_edge(parent_index, child_index).unwrap();
+                let edge_op: &mut Operation = (*dfg).data.edge_weight_mut(edge_index).unwrap();
+                (*edge_op).apply(change_vec.clone())
+            };
+
+            if !next_change.is_empty() {
+                let mut child_view = ((*dfg).data.node_weight(child_index).unwrap()).borrow_mut();
+                (*child_view).change_table(next_change, dfg);
+            }
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -314,21 +323,35 @@ pub enum Operation {
     Selector(Selection),
     Projector(Projection),
     Aggregator(Aggregation),
-    //Root(Rootor),
-    //Leaf(Leafor),
+    Rootor(Root),
+    Leafor(Leaf),
 }
 
 //match self
 impl Operator for Operation {
-    fn apply(&self, prev_change: Vec<Change>) -> Vec<Change> { 
+    fn apply(&mut self, prev_change: Vec<Change>) -> Vec<Change> { 
         match self {
             Operation::Selector(op) => op.apply(prev_change),
             Operation::Projector(op) => op.apply(prev_change),
             Operation::Aggregator(op) => op.apply(prev_change),
-            //Operation::Rootor(op) => op.apply(prev_change),
-            //Operation::Leafor(op) => op.apply(prev_change),
+            Operation::Rootor(op) => op.apply(prev_change),
+            Operation::Leafor(op) => op.apply(prev_change),
         }
     }
+}
+
+#[wasm_bindgen]
+#[derive(Debug)]
+#[derive(Serialize, Deserialize)]
+pub struct Root {
+    root_id: String;
+}
+
+#[wasm_bindgen]
+#[derive(Debug)]
+#[derive(Serialize, Deserialize)]
+pub struct Leaf {
+    mat_view: View,
 }
 
 #[wasm_bindgen]
@@ -340,8 +363,8 @@ pub struct Selection {
 }
 
 impl Operator for Selection {
-    fn apply(&self, prev_change_vec: Vec<Change>) -> Vec<Change> {
-        let next_change_vec = Vec::new();
+    fn apply(&mut self, prev_change_vec: Vec<Change>) -> Vec<Change> {
+        let mut next_change_vec = Vec::new();
 
         for change in prev_change_vec {
             let mut next_change = Change { typing: change.typing, batch: Vec::new()};
@@ -374,8 +397,8 @@ pub struct Projection {
 }
 
 impl Operator for Projection {
-    fn apply(&self, prev_change_vec: Vec<Change>) -> Vec<Change> {
-        let next_change_vec = Vec::new();
+    fn apply(&mut self, prev_change_vec: Vec<Change>) -> Vec<Change> {
+        let mut next_change_vec = Vec::new();
 
         for change in prev_change_vec {
             let mut next_change = Change { typing: change.typing, batch: Vec::new()};
@@ -447,7 +470,7 @@ pub struct Aggregation {
 //implements hard coded length for count, no sum or func matching yet
 //also does not aggregate changes first, which would be a lot cleaner, but harder to implement
 impl Operator for Aggregation {
-    fn apply(&self, prev_change_vec: Vec<Change>) -> Vec<Change> {
+    fn apply(&mut self, prev_change_vec: Vec<Change>) -> Vec<Change> {
         let mut next_change_vec = Vec::new();
 
         //multiple Insertions and Deletions
@@ -459,18 +482,21 @@ impl Operator for Aggregation {
                         //form key to access aggregates in state
                         let mut temp_key = Vec::new();
                         
-                        for index in self.group_by_col {
-                            temp_key.push(row.data[index].clone());
+                        for index in &self.group_by_col {
+                            temp_key.push(row.data[*index].clone());
                         } 
 
-                        match self.state.get_mut(temp_key) {
+                        match self.state.get_mut(&temp_key) {
                             None => {
                                 //create new row to insert with only the group by columns
                                 let mut new_row_vec = Vec::new();
 
-                                for index in self.group_by_col {
-                                    new_row_vec.push(row[index]);
+                                for index in &self.group_by_col {
+                                    new_row_vec.push(row.data[*index]);
                                 } 
+
+                                //copy for key in hashmap
+                                let new_row_key = new_row_vec.clone();
 
                                 //since its a new key, gets its own count
                                 new_row_vec.push(DataType::Int(1));
@@ -478,26 +504,36 @@ impl Operator for Aggregation {
                                 let new_row = Row::new(new_row_vec);
 
                                 //apply changes to operator's internal state
-                                self.state.insert(new_row[key_index], new_row.clone());
+                                self.state.insert(new_row_key, new_row.clone());
+
+                                let mut change_rows = Vec::new();
+                                change_rows.push(new_row.clone());
                             
                                 //send insertion change downstream
-                                let new_group_change = Change::new(ChangeType::Insertion, new_row.clone())
+                                let new_group_change = Change::new(ChangeType::Insertion, change_rows);
                                 next_change_vec.push(new_group_change); 
                             },
                             Some(row_to_incr) => {
                                 //sends deletion change downstream
-                                let delete_old = Change::new(ChangeType::Deletion, &row_to_incr.clone());
+                                let mut change_rows_del = Vec::new();
+                                change_rows_del.push(row_to_incr.clone());
+
+                                let delete_old = Change::new(ChangeType::Deletion, change_rows_del);
                                 next_change_vec.push(delete_old);
 
                                 //increments count in state
                                 let len = &row_to_incr.data.len();
                                 let new_count = match &row_to_incr.data[len - 1] {
                                     DataType::Int(count) => count + 1,
-                                }
-                                &row_to_incr.data[len - 1] = DataType::Int(new_count);
+                                    _ => 0,
+                                };
+                                row_to_incr.data[len - 1] = DataType::Int(new_count);
 
                                 //sends insertion change downstream
-                                let insert_new = Change::new(ChangeType::Insertion, &row_to_incr.clone());
+                                let mut change_rows_ins = Vec::new();
+                                change_rows_ins.push(row_to_incr.clone());
+
+                                let insert_new = Change::new(ChangeType::Insertion, change_rows_ins);
                                 next_change_vec.push(insert_new);
                             },
                         }
@@ -509,29 +545,37 @@ impl Operator for Aggregation {
                     for row in &(change.batch) {
                         let mut temp_key = Vec::new();
                         
-                        for index in self.group_by_col {
-                            temp_key.push(row.data[index].clone());
+                        for index in &self.group_by_col {
+                            temp_key.push(row.data[*index].clone());
                         } 
 
-                        match self.state.get_mut(temp_key) {
+                        match self.state.get_mut(&temp_key) {
                             Some(row_to_decr) => {
                                 //sends deletion change downstream
-                                let delete_old = Change::new(ChangeType::Deletion, &row_to_decr.clone());
+                                let mut change_rows_del = Vec::new();
+                                change_rows_del.push(row_to_decr.clone());
+
+                                let delete_old = Change::new(ChangeType::Deletion, change_rows_del);
                                 next_change_vec.push(delete_old);
 
-                                //increments count in state
+                                //decrements count in state
                                 let len = &row_to_decr.data.len();
                                 let new_count = match &row_to_decr.data[len - 1] {
                                     DataType::Int(count) => count - 1,
-                                }
-                                &row_to_decr.data[len - 1] = DataType::Int(new_count);
+                                    _ => 0,
+                                };
+                                row_to_decr.data[len - 1] = DataType::Int(new_count);
 
                                 //sends insertion change downstream if not decremented to 0
                                 if new_count > 0 {
-                                    let insert_new = Change::new(ChangeType::Insertion, &row_to_incr.clone());
+                                    let mut change_rows_ins = Vec::new();
+                                    change_rows_ins.push(row_to_decr.clone());
+
+                                    let insert_new = Change::new(ChangeType::Insertion, change_rows_ins);
                                     next_change_vec.push(insert_new);
                                 }
-                            }
+                            },
+                            None => {}
                         }
                     }
                 }
@@ -545,8 +589,8 @@ impl Operator for Aggregation {
 #[wasm_bindgen]
 #[derive(Debug)]
 pub struct DataFlowGraph {
-    data: Graph<RefCell<View>, Operation>,
-    index_map: HashMap<String, NodeIndex> 
+    data: Graph<RefCell<Operation>, ()>,
+    op_ind_map: HashMap<String, NodeIndex> 
 }
 
 //writing WITHOUT SCHEMA
@@ -557,9 +601,10 @@ impl fmt::Display for DataFlowGraph {
 }
 
 impl DataFlowGraph { 
-    pub fn process_into_row(inp_view: &View, some_iterable: &JsValue)
+    pub fn process_into_row(some_iterable: &JsValue)
             -> Result<Row, JsValue> {
         let mut row_vec = Vec::new();
+
         let iterator = js_sys::try_iter(some_iterable)?.ok_or_else(|| {
             "need to pass iterable JS values!"
         })?;
@@ -569,23 +614,7 @@ impl DataFlowGraph {
         for x in iterator {
             let mut x = x?;
 
-            let mut ind_row = DataType::None;
-            
-            if (*inp_view).schema[count]== SchemaType::Int {
-                let insert = x.as_f64();
-                if insert.is_some() {
-                    let final_insert = insert.unwrap() as i32;
-                    ind_row = DataType::Int(final_insert);
-                }
-            } else if (*inp_view).schema[count] == SchemaType::Text {
-                let insert = x.as_string();
-                if insert.is_some() {
-                    ind_row = DataType::Text(insert.unwrap());
-                }
-            }
-
-            row_vec.push(ind_row);
-            count = count + 1;
+            row_vec.push(Datatype::from(x));
         }
 
         Ok(Row::new(row_vec))
@@ -595,90 +624,52 @@ impl DataFlowGraph {
 #[wasm_bindgen]
 impl DataFlowGraph { 
     pub fn new(json: String) -> DataFlowGraph {
-        console::log_1(&"Hello using web-sys".into());
         let mut data = Graph::new();
         let mut index_map = HashMap::new();
         
         let obj: Value = serde_json::from_str(&json).unwrap();
-        console::log_1(&"obj".into());
 
         let nodes: Vec<Value> = serde_json::from_value(obj["nodes"].clone()).unwrap();
-        console::log_1(&"nodes".into());
 
         //can't deserialize into struct map??
         for node in nodes {
-            console::log_1(&"begin node".into());
-            console::log_1(&"viewJSON1".into());
             let v: ViewJSON = serde_json::from_value(node).unwrap();
-            console::log_1(&"viewJSON".into());
             let name = v.name.clone();
             let view = View::from(v);
             let index = data.add_node(RefCell::new(view));
             index_map.insert(name, index.clone());
-            console::log_1(&"node".into());
         } 
 
         let edges: Vec<Value> = serde_json::from_value(obj["edges"].clone()).unwrap();
-        console::log_1(&"edges".into());
 
         for edge in &edges {
             let pi: usize = serde_json::from_value(edge["parentindex"].clone()).unwrap();
-            console::log_1(&"pi".into());
             let pni = NodeIndex::new(pi);
             let ci: usize = serde_json::from_value(edge["childindex"].clone()).unwrap();
-            console::log_1(&"ci".into());
             let cni = NodeIndex::new(ci);
             let op: Operation = serde_json::from_value(edge["operation"].clone()).unwrap();
-            console::log_1(&"operators".into());
 
             data.add_edge(pni, cni, op);
-            console::log_1(&"edge".into());
         }
-
-        console::log_1(&"finished".into());
 
         DataFlowGraph { data, index_map }
     }
 
-    // pub fn extend(&mut self, parent: View, child: View, operator: Operation) {
-    //     let first_name = parent.name.clone();
-    //     let first = self.data.add_node(RefCell::new(parent));
-    //     self.index_map.insert(first_name, first.clone());
-
-    //     let second_name = child.name.clone();
-    //     let second = self.data.add_node(RefCell::new(child));
-    //     self.index_map.insert(second_name, second.clone());
-
-    //     self.data.add_edge(first, second, operator);
-    // }
-
     //can you guarantee one operator between views 
-    pub fn process_insert(&mut self, view_string: String, row_ins_js: &JsValue) {
-        let view_name = *(self.index_map.get(&view_string).unwrap());
-        let mut view_to_edit = self.data.node_weight(view_name).unwrap().borrow_mut();
+    pub fn change_to_root(&mut self, root_string: String, row_ins_js: &JsValue) {
+        let root_node_index = *(self.index_map.get(&root_string).unwrap());
+        let mut root_op = self.data.node_weight(root_node_index).unwrap();
 
-        let mut row_ins_rust = match Self::process_into_row(&(*view_to_edit), row_ins_js) {
+        let mut row_ins_rust = match Self::process_into_row(&row_ins_js) {
             Ok(row) => row,
             Err(err) => Row::new(Vec::new()),
         };  
 
         let change_ins = Change::new(ChangeType::Insertion, vec![row_ins_rust]);
+        let mut change_vec = vec![change_ins];
         
-        view_to_edit.change_table(change_ins, self);
+        root_op.process_change(change_vec, self);
     }
-
-    // pub fn process_delete(&mut self, view_string: String, row_del_js: &JsValue) {
-    //     let view_to_edit = self.data.node_weight(*self.index_map.get(&view_string).unwrap()).unwrap();
-
-    //     let mut row_del_rust = match Self::process_into_row(view_to_edit, row_del_js) {
-    //         Ok(row) => row,
-    //         Err(err) => Row::new(Vec::new()),
-    //     };  
-
-    //     let change_ins = Change::new(ChangeType::Deletion, vec![row_del_rust]);
-        
-    //     view_to_edit.delete(change_ins, &mut self); 
-    // }
 
     pub fn render(&self) -> String {
         self.to_string()

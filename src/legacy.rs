@@ -103,6 +103,7 @@ impl fmt::Display for DataType {
 #[wasm_bindgen]     
 #[derive(Debug)]
 #[derive(Hash, Eq, PartialEq, Clone)]
+#[derive(Serialize, Deserialize)]
 pub struct Row {
     data: Vec<DataType>
 }
@@ -243,34 +244,36 @@ impl View {
         Ok(new_sch)
     }
 
-    pub fn change_table(&mut self, change_ins: Vec<Change>, dfg: &DataFlowGraph) {
-        for row in &change_ins.batch {
-            match change_ins.typing {
-                ChangeType::Insertion => {
-                    let key = row.data[self.table_index].clone();
-                    self.table.insert(key, row.clone());
-                },
-                ChangeType::Deletion => {
-                    let key = row.data[self.table_index].clone();
-                    //self.table.remove(key);
-                },
+    pub fn change_table(&mut self, change_vec: Vec<Change>, dfg: &mut DataFlowGraph) {
+        for change in &change_vec {
+            for row in &change.batch {
+                match change.typing {
+                    ChangeType::Insertion => {
+                        let key = row.data[self.table_index].clone();
+                        self.table.insert(key, row.clone());
+                    },
+                    ChangeType::Deletion => {
+                        let key = row.data[self.table_index].clone();
+                        self.table.remove(&key);
+                    },
+                }
             }
         }
 
-        let graph = &(*dfg).data;
         let parent_index = *(*dfg).index_map.get(&self.name).unwrap();
+        let neighbors_iterator = (*dfg).data.neighbors(parent_index).clone();
 
         //let mut child_indices = Vec::new();
 
-        for child_index in graph.neighbors(parent_index) {
+        for child_index in neighbors_iterator {
             let next_change = {
-                let edge_index = graph.find_edge(parent_index, child_index).unwrap();
-                let edge_op: &Operation = (*dfg).data.edge_weight(edge_index).unwrap();
-                (*edge_op).apply(change_ins.clone())
+                let edge_index = (*dfg).data.find_edge(parent_index, child_index).unwrap();
+                let edge_op: &mut Operation = (*dfg).data.edge_weight_mut(edge_index).unwrap();
+                (*edge_op).apply(change_vec.clone())
             };
 
-            if !next_change.batch.is_empty() {
-                let mut child_view = (graph.node_weight(child_index).unwrap()).borrow_mut();
+            if !next_change.is_empty() {
+                let mut child_view = ((*dfg).data.node_weight(child_index).unwrap()).borrow_mut();
                 (*child_view).change_table(next_change, dfg);
             }
         }
@@ -304,7 +307,7 @@ impl View {
 //use ids in JSOn object
 //be careful with schema
 pub trait Operator {
-    fn apply(&self, prev_change: Change) -> Vec<Change>; 
+    fn apply(&mut self, prev_change: Vec<Change>) -> Vec<Change>; 
 }
 
 #[derive(Debug)]
@@ -313,16 +316,20 @@ pub trait Operator {
 pub enum Operation {
     Selector(Selection),
     Projector(Projection),
-    Aggregator(Aggregation)
+    Aggregator(Aggregation),
+    //Root(Rootor),
+    //Leaf(Leafor),
 }
 
 //match self
 impl Operator for Operation {
-    fn apply(&self, prev_change: Vec<Change>) -> Vec<Change> { 
+    fn apply(&mut self, prev_change: Vec<Change>) -> Vec<Change> { 
         match self {
             Operation::Selector(op) => op.apply(prev_change),
             Operation::Projector(op) => op.apply(prev_change),
             Operation::Aggregator(op) => op.apply(prev_change),
+            //Operation::Rootor(op) => op.apply(prev_change),
+            //Operation::Leafor(op) => op.apply(prev_change),
         }
     }
 }
@@ -336,8 +343,8 @@ pub struct Selection {
 }
 
 impl Operator for Selection {
-    fn apply(&self, prev_change_vec: Vec<Change>) -> Vec<Change> {
-        let next_change_vec = Vec::new();
+    fn apply(&mut self, prev_change_vec: Vec<Change>) -> Vec<Change> {
+        let mut next_change_vec = Vec::new();
 
         for change in prev_change_vec {
             let mut next_change = Change { typing: change.typing, batch: Vec::new()};
@@ -370,8 +377,8 @@ pub struct Projection {
 }
 
 impl Operator for Projection {
-    fn apply(&self, prev_change_vec: Vec<Change>) -> Vec<Change> {
-        let next_change_vec = Vec::new();
+    fn apply(&mut self, prev_change_vec: Vec<Change>) -> Vec<Change> {
+        let mut next_change_vec = Vec::new();
 
         for change in prev_change_vec {
             let mut next_change = Change { typing: change.typing, batch: Vec::new()};
@@ -424,46 +431,138 @@ impl Projection {
     }
 }
 
-pub enum FuncType {
-    SUM,
-    COUNT
-}
+// pub enum FuncType {
+//     SUM(Vec<usize>),
+//     COUNT
+// }
 
-//ASSUMING ONLY SUM, could make a struct for functions
+//group_by_col is ordered lowest to highest
 #[wasm_bindgen]
 #[derive(Debug)]
 #[derive(Serialize, Deserialize)]
 pub struct Aggregation {
     group_by_col: Vec<usize>,
-    function: FuncType,
+    //function: FuncType,
+    key_index: usize,
+    state: HashMap<Vec<DataType>, Row>,
 }
 
-//incremental aggregation i guess
-//what about duplication elimination??
+//implements hard coded length for count, no sum or func matching yet
+//also does not aggregate changes first, which would be a lot cleaner, but harder to implement
 impl Operator for Aggregation {
-    fn apply(&self, prev_change: Vec<Change>) -> Change {
+    fn apply(&mut self, prev_change_vec: Vec<Change>) -> Vec<Change> {
+        let mut next_change_vec = Vec::new();
 
-
-        let mut next_change = Change { typing: ChangeType::Update, batch: Vec::new()};
-        
-        for row in &(prev_change.batch) {
-            match prev_change.typing {
+        //multiple Insertions and Deletions
+        for change in prev_change_vec {
+            match change.typing {
                 ChangeType::Insertion => {
-                    self.current_sum = self.current_sum + row.data[self.col_ind];
+                    //multiple rows in a single Change
+                    for row in &(change.batch) {
+                        //form key to access aggregates in state
+                        let mut temp_key = Vec::new();
+                        
+                        for index in &self.group_by_col {
+                            temp_key.push(row.data[*index].clone());
+                        } 
+
+                        match self.state.get_mut(&temp_key) {
+                            None => {
+                                //create new row to insert with only the group by columns
+                                let mut new_row_vec = Vec::new();
+
+                                for index in &self.group_by_col {
+                                    new_row_vec.push(row.data[*index]);
+                                } 
+
+                                //copy for key in hashmap
+                                let new_row_key = new_row_vec.clone();
+
+                                //since its a new key, gets its own count
+                                new_row_vec.push(DataType::Int(1));
+
+                                let new_row = Row::new(new_row_vec);
+
+                                //apply changes to operator's internal state
+                                self.state.insert(new_row_key, new_row.clone());
+
+                                let mut change_rows = Vec::new();
+                                change_rows.push(new_row.clone());
+                            
+                                //send insertion change downstream
+                                let new_group_change = Change::new(ChangeType::Insertion, change_rows);
+                                next_change_vec.push(new_group_change); 
+                            },
+                            Some(row_to_incr) => {
+                                //sends deletion change downstream
+                                let mut change_rows_del = Vec::new();
+                                change_rows_del.push(row_to_incr.clone());
+
+                                let delete_old = Change::new(ChangeType::Deletion, change_rows_del);
+                                next_change_vec.push(delete_old);
+
+                                //increments count in state
+                                let len = &row_to_incr.data.len();
+                                let new_count = match &row_to_incr.data[len - 1] {
+                                    DataType::Int(count) => count + 1,
+                                    _ => 0,
+                                };
+                                row_to_incr.data[len - 1] = DataType::Int(new_count);
+
+                                //sends insertion change downstream
+                                let mut change_rows_ins = Vec::new();
+                                change_rows_ins.push(row_to_incr.clone());
+
+                                let insert_new = Change::new(ChangeType::Insertion, change_rows_ins);
+                                next_change_vec.push(insert_new);
+                            },
+                        }
+                    }
                 }
-                ChangeType::Deletion => self.current_sum = self.current_sum - row.data[self.col_ind];
-                ChangeType::Update => 
+                //In this model, we assume that deletions will always match with one aggregated row
+                ChangeType::Deletion => {
+                    //multiple rows in a single Change
+                    for row in &(change.batch) {
+                        let mut temp_key = Vec::new();
+                        
+                        for index in &self.group_by_col {
+                            temp_key.push(row.data[*index].clone());
+                        } 
+
+                        match self.state.get_mut(&temp_key) {
+                            Some(row_to_decr) => {
+                                //sends deletion change downstream
+                                let mut change_rows_del = Vec::new();
+                                change_rows_del.push(row_to_decr.clone());
+
+                                let delete_old = Change::new(ChangeType::Deletion, change_rows_del);
+                                next_change_vec.push(delete_old);
+
+                                //decrements count in state
+                                let len = &row_to_decr.data.len();
+                                let new_count = match &row_to_decr.data[len - 1] {
+                                    DataType::Int(count) => count - 1,
+                                    _ => 0,
+                                };
+                                row_to_decr.data[len - 1] = DataType::Int(new_count);
+
+                                //sends insertion change downstream if not decremented to 0
+                                if new_count > 0 {
+                                    let mut change_rows_ins = Vec::new();
+                                    change_rows_ins.push(row_to_decr.clone());
+
+                                    let insert_new = Change::new(ChangeType::Insertion, change_rows_ins);
+                                    next_change_vec.push(insert_new);
+                                }
+                            },
+                            None => {}
+                        }
+                    }
+                }
             }
-            let mut changed_row = Row::new(Vec::new());
-
-            // for index in &self.columns {
-            //     changed_row.data.push(row.data[*index].clone());
-            // }
-
-            next_change.batch.push(changed_row);
         }
 
-        next_change
+        next_change_vec
     }
 }
 
@@ -588,8 +687,9 @@ impl DataFlowGraph {
         };  
 
         let change_ins = Change::new(ChangeType::Insertion, vec![row_ins_rust]);
+        let mut change_vec = vec![change_ins];
         
-        view_to_edit.change_table(change_ins, self);
+        view_to_edit.change_table(change_vec, self);
     }
 
     // pub fn process_delete(&mut self, view_string: String, row_del_js: &JsValue) {
@@ -617,11 +717,5 @@ impl DataFlowGraph {
         self.data.node_count()
     }
 }
-
-// #[wasm_bindgen_test]
-// fn unit_test() {
-//     // this test can access private members of structs defined in this module (file)
-//     assert_eq!(1 + 1, 2);
-// }
 
 
