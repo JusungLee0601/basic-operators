@@ -24,7 +24,10 @@ use web_sys::console;
 // #[global_allocator]
 // static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
-//Data
+
+//-----------------------------Types--------------------------------//
+
+//Data, basic unit of info in tables
 #[derive(Debug)]
 #[derive(Clone, Hash, Eq, PartialEq)]
 #[derive(Serialize, Deserialize)]
@@ -35,7 +38,7 @@ pub enum DataType {
     Text(String)
 }
 
-//from conversion, f64->SchemaType
+//from conversion, &JsValue->DataType
 impl From<&JsValue> for DataType {
     fn from(item: &JsValue) -> Self {
         if (*item).as_f64().is_some()  {
@@ -48,25 +51,15 @@ impl From<&JsValue> for DataType {
     }
 }
 
-//Schema types
-#[wasm_bindgen]
-#[derive(Debug, Clone, PartialEq)]
-#[derive(Serialize, Deserialize)]
-pub enum SchemaType {
-    None,
-    Int,
-    Text
-}
-
-//from conversion, f64->SchemaType
-impl From<JsValue> for SchemaType {
+//from conversion, JsValue->DataType
+impl From<JsValue> for DataType {
     fn from(item: JsValue) -> Self {
-        if item == 2 {
-            SchemaType::Text
-        } else if item == 1 {
-            SchemaType::Int
+        if (item).as_f64().is_some()  {
+            DataType::Int(item.as_f64().unwrap() as i32)
+        } else if ( item).as_string().is_some()  {
+            DataType::Text(item.as_string().unwrap())
         } else {
-            SchemaType::None
+            DataType::None
         }
     }
 }
@@ -84,7 +77,45 @@ impl fmt::Display for DataType {
     }
 }
 
-//Row
+//Schema, for Views only
+#[wasm_bindgen]
+#[derive(Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize)]
+pub enum SchemaType {
+    None,
+    Int,
+    Text
+}
+
+//from conversion, JsValue->SchemaType
+impl From<JsValue> for SchemaType {
+    fn from(item: JsValue) -> Self {
+        if item == 2 {
+            SchemaType::Text
+        } else if item == 1 {
+            SchemaType::Int
+        } else {
+            SchemaType::None
+        }
+    }
+}
+
+//Change, delineates Insertion vs Deletion
+#[derive(Debug, Clone, PartialEq)]
+pub enum ChangeType {
+    Insertion,
+    Deletion
+}
+
+//Supposed to be for Aggregation
+// pub enum FuncType {
+//     SUM(Vec<usize>),
+//     COUNT
+// }
+
+//-----------------------------"Units"--------------------------------//
+
+//Row, allows 2d representation in tables
 #[wasm_bindgen]     
 #[derive(Debug)]
 #[derive(Hash, Eq, PartialEq, Clone)]
@@ -117,29 +148,26 @@ impl Row {
     }
 }
 
-//Schema types
-#[derive(Debug, Clone, PartialEq)]
-pub enum ChangeType {
-    Insertion,
-    Deletion
-}
-
-//start with change
-//pass in graph pointer
-//use non mutable graph 
-//Schema types
+//Change, typing shows ChangeType, batch holds multiple potential changes
 #[derive(Debug, Clone, PartialEq)]
 pub struct Change {
     typing: ChangeType,
     batch: Vec<Row>
 }
 
+//Change functions
 impl Change {
+    //constructor
     pub fn new(typing: ChangeType, batch: Vec<Row>) -> Change {
         Change { typing, batch }
     }
 }
 
+//-----------------------------Views (from the 6)--------------------------------//
+
+//ViewJSON
+//View without table for graph construction
+//I don't think this is needed, haven't tested without it though
 #[derive(Serialize, Deserialize)]
 pub struct ViewJSON {
     name: String,
@@ -148,7 +176,8 @@ pub struct ViewJSON {
     table_index: usize,
 }
 
-//from conversion, f64->SchemaType
+//from conversion, ViewJSON -> View
+//ditto of newJSON function in View
 impl From<ViewJSON> for View {
     fn from(item: ViewJSON) -> Self {
         let view = View::newJSON(item.name, item.table_index, item.columns, item.schema);
@@ -158,17 +187,19 @@ impl From<ViewJSON> for View {
 }
 
 //View
+//name: string name, assumed unique
 #[wasm_bindgen]
 #[derive(Debug)]
+#[derive(Serialize, Deserialize)]
 pub struct View {
     name: String,
-    columns: Vec<String>,
+    column_names: Vec<String>,
     schema: Vec<SchemaType>,
-    table_index: usize,
+    key_index: usize,
     table: HashMap<DataType, Row>
 }
 
-//writing WITHOUT SCHEMA
+//displays View
 impl fmt::Display for View {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.name);
@@ -185,51 +216,18 @@ impl fmt::Display for View {
     }
 }
 
-//processing fnss to set columns and schema, view mod fns
+//View functions, unexposed
 impl View {
-    pub fn newJSON(name: String, table_index: usize, columns: Vec<String>, 
+    /// Returns View assuming empty table
+    pub fn newJSON(name: String, key_index: usize, column_names: Vec<String>, 
         schema: Vec<SchemaType>) -> View {
         let table = HashMap::new();
 
-        View {name, table_index, columns, schema, table}
+        View {name, key_index, column_names, schema, table}
     }
 
-    pub fn set_col(some_iterable: &JsValue) 
-                   -> Result<Vec<String>, JsValue> {
-        let mut new_col = Vec::new();
-        let iterator = js_sys::try_iter(some_iterable)?.ok_or_else(|| {
-            "need to pass iterable JS values!"
-        })?;
-
-        for x in iterator {
-            let x = x?;
-            let column = x.as_string();
-
-            if column.is_some() {
-                new_col.push(column.unwrap());
-            }
-        }
-
-        Ok(new_col)
-    }
-
-    pub fn set_sch(some_iterable: &JsValue) 
-                   -> Result<Vec<SchemaType>, JsValue> {
-        let mut new_sch = Vec::new();
-        let iterator = js_sys::try_iter(some_iterable)?.ok_or_else(|| {
-            "need to pass iterable JS values!"
-        })?;
-
-        for x in iterator {
-            let x = x?;
-
-            new_sch.push(SchemaType::from(x));
-        }
-
-        Ok(new_sch)
-    }
-
-    pub fn change_table(&mut self, change_vec: Vec<Change>, dfg: &mut DataFlowGraph) {
+    /// Changes View's table given a vector of Changes
+    pub fn change_table(&mut self, change_vec: Vec<Change>) {
         for change in &change_vec {
             for row in &change.batch {
                 match change.typing {
@@ -244,78 +242,43 @@ impl View {
                 }
             }
         }
-
-        let parent_index = *(*dfg).index_map.get(&self.name).unwrap();
-        let neighbors_iterator = (*dfg).data.neighbors(parent_index).clone();
-
-        //let mut child_indices = Vec::new();
-
-        for child_index in neighbors_iterator {
-            let next_change = {
-                let edge_index = (*dfg).data.find_edge(parent_index, child_index).unwrap();
-                let edge_op: &mut Operation = (*dfg).data.edge_weight_mut(edge_index).unwrap();
-                (*edge_op).apply(change_vec.clone())
-            };
-
-            if !next_change.is_empty() {
-                let mut child_view = ((*dfg).data.node_weight(child_index).unwrap()).borrow_mut();
-                (*child_view).change_table(next_change, dfg);
-            }
-        }
     }
 }
 
-//pageload view, view creation without a user 
+//View functions, exposed
 #[wasm_bindgen]
 impl View {
-    pub fn newJS(name: String, table_index: usize, col_arr: &JsValue, 
-               sch_arr: &JsValue) -> View {
-        let mut table = HashMap::new();
-
-        let mut columns = match Self::set_col(col_arr) {
-            Ok(str_vec) => str_vec,
-            Err(err) => Vec::new(),
-        };  
-        let mut schema = match Self::set_sch(sch_arr) {
-            Ok(sch_vec) => sch_vec,
-            Err(err) => Vec::new(),
-        };   
-
-        View {name, table_index, columns, schema, table}
-    }
-
+    /// Returns View as a String
     pub fn render(&self) -> String {
         self.to_string()
     }
 }
 
-//use ids in JSOn object
-//be careful with schema
+//-----------------------------Operators and Operations--------------------------------//
+
+//Operator trait
 pub trait Operator {
+    /// Returns Vec of Changes after operator conditions applied
     fn apply(&mut self, prev_change: Vec<Change>) -> Vec<Change>; 
 
-    fn process_change(&mut self, change: Vec<Change>, dfg: &mut DataFlowGraph) -> Vec<Change> { 
-        let processed_change = self.apply(change),
-        let parent_index = *(*dfg).index_map.get(&self.name).unwrap();
-        let neighbors_iterator = (*dfg).data.neighbors(parent_index).clone();
-
-        //let mut child_indices = Vec::new();
+    /// Takes a set of Changes and propogates the Changes recursively through nodes children
+    /// calls apply to generate new Change to send downward
+    fn process_change(&mut self, change: Vec<Change>, dfg: &mut DataFlowGraph, parent_index: NodeIndex) { 
+        let processed_change = self.apply(change);
+        let graph = (*dfg).data;
+        let neighbors_iterator = graph.neighbors(parent_index);
 
         for child_index in neighbors_iterator {
-            let next_change = {
-                let edge_index = (*dfg).data.find_edge(parent_index, child_index).unwrap();
-                let edge_op: &mut Operation = (*dfg).data.edge_weight_mut(edge_index).unwrap();
-                (*edge_op).apply(change_vec.clone())
-            };
+            let mut child_op = graph.node_weight_mut(child_index).unwrap().borrow_mut();
 
-            if !next_change.is_empty() {
-                let mut child_view = ((*dfg).data.node_weight(child_index).unwrap()).borrow_mut();
-                (*child_view).change_table(next_change, dfg);
-            }
+            (*child_op).process_change(processed_change, dfg, child_index);
         }
     }
 }
 
+//Operation Enum, used for typing
+//I think this was originally for exposing operators to JS, but now that operator stuff is handled
+//Rust side I'm not sure if this still needs to exist, I can give it a try to switch
 #[derive(Debug)]
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "t", content = "c")]
@@ -327,7 +290,7 @@ pub enum Operation {
     Leafor(Leaf),
 }
 
-//match self
+//Operator Trait for Operation Enum
 impl Operator for Operation {
     fn apply(&mut self, prev_change: Vec<Change>) -> Vec<Change> { 
         match self {
@@ -338,15 +301,49 @@ impl Operator for Operation {
             Operation::Leafor(op) => op.apply(prev_change),
         }
     }
+
+    fn process_change(&mut self, change: Vec<Change>, dfg: &mut DataFlowGraph, parent_index: NodeIndex) { 
+        match self {
+            Operation::Selector(op) => op.process_change(change, dfg, parent_index),
+            Operation::Projector(op) => op.process_change(change, dfg, parent_index),
+            Operation::Aggregator(op) => op.process_change(change, dfg, parent_index),
+            Operation::Rootor(op) => op.process_change(change, dfg, parent_index),
+            Operation::Leafor(op) => op.process_change(change, dfg, parent_index),
+        }
+    }
 }
 
+//Root Operator
+//root_id assumed unique, used for NodeIndex mapping to find in graph
 #[wasm_bindgen]
 #[derive(Debug)]
 #[derive(Serialize, Deserialize)]
 pub struct Root {
-    root_id: String;
+    root_id: String,
 }
 
+//Operator Trait for Root
+impl Operator for Root {
+    /// Dummy apply, doesn't do anything :( feels very unnecessary
+    fn apply(&mut self, prev_change_vec: Vec<Change>) -> Vec<Change> {
+        prev_change_vec
+    }
+
+    /// For Root, process change does not "apply"/change the initial set of Changes as it is the Root
+    fn process_change(&mut self, change: Vec<Change>, dfg: &mut DataFlowGraph, parent_index: NodeIndex) { 
+        let graph = (*dfg).data;
+        let neighbors_iterator = graph.neighbors(parent_index);
+
+        for child_index in neighbors_iterator {
+            let mut child_op = graph.node_weight_mut(child_index).unwrap().borrow_mut();
+
+            child_op.process_change(change, dfg, child_index);
+        }
+    }
+}
+
+//Leaf Operator
+//stored view is what is "accessed" by JS
 #[wasm_bindgen]
 #[derive(Debug)]
 #[derive(Serialize, Deserialize)]
@@ -354,6 +351,22 @@ pub struct Leaf {
     mat_view: View,
 }
 
+//Operator Trait for Leaf
+impl Operator for Leaf {
+    ///Apply doesn't actually modify Change, inserts into mat_view table, returns unchanged input
+    fn apply(&mut self, prev_change_vec: Vec<Change>) -> Vec<Change> {
+        self.mat_view.change_table(prev_change_vec);
+
+        prev_change_vec
+    }
+
+    /// Doesn't apply to the rest of the operators as it is the Leaf
+    fn process_change(&mut self, change: Vec<Change>, dfg: &mut DataFlowGraph, parent_index: NodeIndex) { 
+        self.apply(change);
+    }
+}
+
+//Selection Operator
 #[wasm_bindgen]
 #[derive(Debug)]
 #[derive(Serialize, Deserialize)]
@@ -362,6 +375,7 @@ pub struct Selection {
     condition: DataType,
 }
 
+//Operator Trait for Selection
 impl Operator for Selection {
     fn apply(&mut self, prev_change_vec: Vec<Change>) -> Vec<Change> {
         let mut next_change_vec = Vec::new();
@@ -382,13 +396,8 @@ impl Operator for Selection {
     }
 }
 
-impl Selection {
-    fn new(col_ind: usize, condition_js: &JsValue) -> Selection {
-        let condition = DataType::from(condition_js);
-        Selection { col_ind, condition}
-    }
-}
 
+//Projection Operator
 #[wasm_bindgen]
 #[derive(Debug)]
 #[derive(Serialize, Deserialize)]
@@ -396,6 +405,7 @@ pub struct Projection {
     columns: Vec<usize>,
 }
 
+//Operator Trait for Projection
 impl Operator for Projection {
     fn apply(&mut self, prev_change_vec: Vec<Change>) -> Vec<Change> {
         let mut next_change_vec = Vec::new();
@@ -420,42 +430,7 @@ impl Operator for Projection {
     }
 }
 
-impl Projection {
-    fn process_into_col(some_iterable: &JsValue) -> Result<Vec<usize>, JsValue>  {
-        let mut columns = Vec::new();
-        let iterator = js_sys::try_iter(some_iterable)?.ok_or_else(|| {
-            "need to pass iterable JS values!"
-        })?;
-
-        for x in iterator {
-            let mut x = x?;
-
-            let insert = x.as_f64();
-
-            if insert.is_some() {
-                let final_insert = insert.unwrap() as usize;
-                columns.push(final_insert);
-            }
-        }
-
-        Ok(columns)
-    }
-
-    fn new(some_iterable: &JsValue) -> Projection {
-        let mut columns = match Self::process_into_col(&some_iterable) {
-            Ok(proj) => proj,
-            Err(err) => Vec::new(),
-        };  
-
-        Projection { columns }
-    }
-}
-
-// pub enum FuncType {
-//     SUM(Vec<usize>),
-//     COUNT
-// }
-
+//Aggregation Operator
 //group_by_col is ordered lowest to highest
 #[wasm_bindgen]
 #[derive(Debug)]
@@ -467,8 +442,9 @@ pub struct Aggregation {
     state: HashMap<Vec<DataType>, Row>,
 }
 
+//Operator Trait for Aggregation
 //implements hard coded length for count, no sum or func matching yet
-//also does not aggregate changes first, which would be a lot cleaner, but harder to implement
+//also does not group changes first, which would be a lot cleaner, but harder to implement
 impl Operator for Aggregation {
     fn apply(&mut self, prev_change_vec: Vec<Change>) -> Vec<Change> {
         let mut next_change_vec = Vec::new();
@@ -586,21 +562,29 @@ impl Operator for Aggregation {
     }
 }
 
+//-----------------------------Graph--------------------------------//
+
+//DataFlowGraph
+//root_id_map: map of root_id's to their NodeIndexes
+//leaf_id_vec: just a list of leaf ids, used for printing
 #[wasm_bindgen]
 #[derive(Debug)]
 pub struct DataFlowGraph {
     data: Graph<RefCell<Operation>, ()>,
-    op_ind_map: HashMap<String, NodeIndex> 
+    root_id_map: HashMap<String, NodeIndex>,
+    leaf_id_vec: Vec<NodeIndex>,
 }
 
-//writing WITHOUT SCHEMA
+//Displays DFG
 impl fmt::Display for DataFlowGraph {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:#?}", self)
     }
 }
 
+//DFG functions, unexposed
 impl DataFlowGraph { 
+    /// Returns a Row from any JSValue, preferably an array
     pub fn process_into_row(some_iterable: &JsValue)
             -> Result<Row, JsValue> {
         let mut row_vec = Vec::new();
@@ -614,30 +598,39 @@ impl DataFlowGraph {
         for x in iterator {
             let mut x = x?;
 
-            row_vec.push(Datatype::from(x));
+            row_vec.push(DataType::from(x));
         }
 
         Ok(Row::new(row_vec))
     }
 }
 
+//DFG Functions, exposed
 #[wasm_bindgen]
 impl DataFlowGraph { 
+    /// Returns DFG from JSON input
     pub fn new(json: String) -> DataFlowGraph {
         let mut data = Graph::new();
-        let mut index_map = HashMap::new();
+        let mut root_id_map = HashMap::new();
+        let mut leaf_id_vec = Vec::new();
         
         let obj: Value = serde_json::from_str(&json).unwrap();
 
-        let nodes: Vec<Value> = serde_json::from_value(obj["nodes"].clone()).unwrap();
+        let operators: Vec<Value> = serde_json::from_value(obj["operators"].clone()).unwrap();
 
         //can't deserialize into struct map??
-        for node in nodes {
-            let v: ViewJSON = serde_json::from_value(node).unwrap();
-            let name = v.name.clone();
-            let view = View::from(v);
-            let index = data.add_node(RefCell::new(view));
-            index_map.insert(name, index.clone());
+        for op_val in operators {
+            let op: Operation = serde_json::from_value(op_val).unwrap();
+
+            let index = data.add_node(RefCell::new(op));
+
+            match op {
+                Operation::Rootor(inner_op) => {
+                    let option = root_id_map.insert(inner_op.root_id, index);
+                },
+                Operation::Leafor(inner_op) => leaf_id_vec.push(index),
+                _ => (),
+            }
         } 
 
         let edges: Vec<Value> = serde_json::from_value(obj["edges"].clone()).unwrap();
@@ -647,18 +640,18 @@ impl DataFlowGraph {
             let pni = NodeIndex::new(pi);
             let ci: usize = serde_json::from_value(edge["childindex"].clone()).unwrap();
             let cni = NodeIndex::new(ci);
-            let op: Operation = serde_json::from_value(edge["operation"].clone()).unwrap();
 
-            data.add_edge(pni, cni, op);
+            data.extend_with_edges(&[(pni, cni)]);
         }
 
-        DataFlowGraph { data, index_map }
+        DataFlowGraph { data, root_id_map, leaf_id_vec }
     }
 
-    //can you guarantee one operator between views 
+    /// Applies inserts and deletions sent to a specified Root, propogates them
+    /// through graph relying on the recursive operator calls
     pub fn change_to_root(&mut self, root_string: String, row_ins_js: &JsValue) {
-        let root_node_index = *(self.index_map.get(&root_string).unwrap());
-        let mut root_op = self.data.node_weight(root_node_index).unwrap();
+        let root_node_index = *(self.root_id_map.get(&root_string).unwrap());
+        let mut root_op = self.data.node_weight(root_node_index).unwrap().borrow_mut();
 
         let mut row_ins_rust = match Self::process_into_row(&row_ins_js) {
             Ok(row) => row,
@@ -668,7 +661,7 @@ impl DataFlowGraph {
         let change_ins = Change::new(ChangeType::Insertion, vec![row_ins_rust]);
         let mut change_vec = vec![change_ins];
         
-        root_op.process_change(change_vec, self);
+        root_op.process_change(change_vec, self, root_node_index);
     }
 
     pub fn render(&self) -> String {

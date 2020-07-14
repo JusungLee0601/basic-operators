@@ -5,7 +5,26 @@ import { View, Row, SchemaType, DataType, DataFlowGraph, Operation} from "noria-
 // const parent_view = View.newJS("Dummy", 0, columns, schema);
 
 var dummygraph = {
-    "nodes": [{
+    "operators": [{
+        "t": "Selector",
+        "c": {
+            "col_ind": 0,
+            "condition": {
+                "t": "Text",
+                "c": "dummy"
+            } 
+        }
+    }],
+    "edges": [{
+        "parentindex": 0,
+        "childindex": 1,
+    }, {
+        "parentindex": 0,
+        "childindex": 1,
+    }]
+
+
+        {
         "name": "first",
         "columns": ["Article", "Count"],
         "schema": ["Text", "Int"],
