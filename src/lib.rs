@@ -165,6 +165,10 @@ impl Change {
 
 //-----------------------------Views (from the 6)--------------------------------//
 
+fn return_hash_v() -> HashMap<DataType, Row> {
+    HashMap::new()
+}
+
 //ViewJSON
 //View without table for graph construction
 //I don't think this is needed, haven't tested without it though
@@ -189,21 +193,22 @@ impl From<ViewJSON> for View {
 //View
 //name: string name, assumed unique
 #[wasm_bindgen]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[derive(Serialize, Deserialize)]
 pub struct View {
     name: String,
     column_names: Vec<String>,
     schema: Vec<SchemaType>,
     key_index: usize,
-    table: HashMap<DataType, Row>
+    #[serde(default = "return_hash_v")]
+    table: HashMap<DataType, Row>,
 }
 
 //displays View
 impl fmt::Display for View {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.name);
-        for strings in self.columns.iter() {
+        for strings in self.column_names.iter() {
             write!(f, "{}", strings);
         }
         for (key, row) in self.table.iter() {
@@ -232,11 +237,11 @@ impl View {
             for row in &change.batch {
                 match change.typing {
                     ChangeType::Insertion => {
-                        let key = row.data[self.table_index].clone();
+                        let key = row.data[self.key_index].clone();
                         self.table.insert(key, row.clone());
                     },
                     ChangeType::Deletion => {
-                        let key = row.data[self.table_index].clone();
+                        let key = row.data[self.key_index].clone();
                         self.table.remove(&key);
                     },
                 }
@@ -263,15 +268,16 @@ pub trait Operator {
 
     /// Takes a set of Changes and propogates the Changes recursively through nodes children
     /// calls apply to generate new Change to send downward
-    fn process_change(&mut self, change: Vec<Change>, dfg: &mut DataFlowGraph, parent_index: NodeIndex) { 
-        let processed_change = self.apply(change);
-        let graph = (*dfg).data;
+    fn process_change(&mut self, change: Vec<Change>, dfg: &DataFlowGraph, parent_index: NodeIndex) { 
+        let next_change = self.apply(change);
+        let graph = &(*dfg).data;
         let neighbors_iterator = graph.neighbors(parent_index);
 
         for child_index in neighbors_iterator {
-            let mut child_op = graph.node_weight_mut(child_index).unwrap().borrow_mut();
+            let child_cell = (*graph).node_weight(child_index).unwrap();
+            let mut child_ref_mut = child_cell.borrow_mut();
 
-            (*child_op).process_change(processed_change, dfg, child_index);
+            (*child_ref_mut).process_change(next_change.clone(), dfg, child_index);
         }
     }
 }
@@ -279,7 +285,7 @@ pub trait Operator {
 //Operation Enum, used for typing
 //I think this was originally for exposing operators to JS, but now that operator stuff is handled
 //Rust side I'm not sure if this still needs to exist, I can give it a try to switch
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "t", content = "c")]
 pub enum Operation {
@@ -302,7 +308,7 @@ impl Operator for Operation {
         }
     }
 
-    fn process_change(&mut self, change: Vec<Change>, dfg: &mut DataFlowGraph, parent_index: NodeIndex) { 
+    fn process_change(&mut self, change: Vec<Change>, dfg: &DataFlowGraph, parent_index: NodeIndex) { 
         match self {
             Operation::Selector(op) => op.process_change(change, dfg, parent_index),
             Operation::Projector(op) => op.process_change(change, dfg, parent_index),
@@ -316,7 +322,7 @@ impl Operator for Operation {
 //Root Operator
 //root_id assumed unique, used for NodeIndex mapping to find in graph
 #[wasm_bindgen]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[derive(Serialize, Deserialize)]
 pub struct Root {
     root_id: String,
@@ -324,20 +330,21 @@ pub struct Root {
 
 //Operator Trait for Root
 impl Operator for Root {
-    /// Dummy apply, doesn't do anything :( feels very unnecessary
+    /// Identity, doesn't need to modify change as Root
     fn apply(&mut self, prev_change_vec: Vec<Change>) -> Vec<Change> {
         prev_change_vec
     }
 
     /// For Root, process change does not "apply"/change the initial set of Changes as it is the Root
-    fn process_change(&mut self, change: Vec<Change>, dfg: &mut DataFlowGraph, parent_index: NodeIndex) { 
-        let graph = (*dfg).data;
+    fn process_change(&mut self, change: Vec<Change>, dfg: &DataFlowGraph, parent_index: NodeIndex) { 
+        let graph = &(*dfg).data;
         let neighbors_iterator = graph.neighbors(parent_index);
 
         for child_index in neighbors_iterator {
-            let mut child_op = graph.node_weight_mut(child_index).unwrap().borrow_mut();
+            let child_cell = (*graph).node_weight(child_index).unwrap();
+            let mut child_ref_mut = child_cell.borrow_mut();
 
-            child_op.process_change(change, dfg, child_index);
+            (*child_ref_mut).process_change(change.clone(), dfg, child_index);
         }
     }
 }
@@ -345,7 +352,7 @@ impl Operator for Root {
 //Leaf Operator
 //stored view is what is "accessed" by JS
 #[wasm_bindgen]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[derive(Serialize, Deserialize)]
 pub struct Leaf {
     mat_view: View,
@@ -357,18 +364,18 @@ impl Operator for Leaf {
     fn apply(&mut self, prev_change_vec: Vec<Change>) -> Vec<Change> {
         self.mat_view.change_table(prev_change_vec);
 
-        prev_change_vec
+        Vec::new()
     }
 
     /// Doesn't apply to the rest of the operators as it is the Leaf
-    fn process_change(&mut self, change: Vec<Change>, dfg: &mut DataFlowGraph, parent_index: NodeIndex) { 
+    fn process_change(&mut self, change: Vec<Change>, dfg: &DataFlowGraph, parent_index: NodeIndex) { 
         self.apply(change);
     }
 }
 
 //Selection Operator
 #[wasm_bindgen]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[derive(Serialize, Deserialize)]
 pub struct Selection {
     col_ind: usize,
@@ -399,7 +406,7 @@ impl Operator for Selection {
 
 //Projection Operator
 #[wasm_bindgen]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[derive(Serialize, Deserialize)]
 pub struct Projection {
     columns: Vec<usize>,
@@ -430,15 +437,19 @@ impl Operator for Projection {
     }
 }
 
+fn return_hash_a() -> HashMap<Vec<DataType>, Row> {
+    HashMap::new()
+}
+
 //Aggregation Operator
 //group_by_col is ordered lowest to highest
 #[wasm_bindgen]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[derive(Serialize, Deserialize)]
 pub struct Aggregation {
     group_by_col: Vec<usize>,
     //function: FuncType,
-    key_index: usize,
+    #[serde(default = "return_hash_a")]
     state: HashMap<Vec<DataType>, Row>,
 }
 
@@ -468,7 +479,7 @@ impl Operator for Aggregation {
                                 let mut new_row_vec = Vec::new();
 
                                 for index in &self.group_by_col {
-                                    new_row_vec.push(row.data[*index]);
+                                    new_row_vec.push(row.data[*index].clone());
                                 } 
 
                                 //copy for key in hashmap
@@ -578,7 +589,16 @@ pub struct DataFlowGraph {
 //Displays DFG
 impl fmt::Display for DataFlowGraph {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:#?}", self)
+        for leaf_index in self.leaf_id_vec.clone() {
+            let op_ref = self.data.node_weight(leaf_index).unwrap().borrow_mut();
+
+            match &*op_ref {
+                Operation::Leafor(leaf) => write!(f, "{:#?}", leaf.mat_view),
+                _ => Ok(())
+            };
+        }
+
+        Ok(())
     }
 }
 
@@ -618,38 +638,59 @@ impl DataFlowGraph {
 
         let operators: Vec<Value> = serde_json::from_value(obj["operators"].clone()).unwrap();
 
-        //can't deserialize into struct map??
+        //Operator processing
+        //Important to note that I'm allowing for cloning of operators. Mostly this clones small
+        //bits of data like conditions and rows, but for Leaf this technically calls for cloning an
+        //entire view. I'm hoping let allow this only because at this stage, the graph operators
+        //technically have empty fields for state and Views. If JSON were to be sent with non-empty
+        //initial graphs, then this would no longer be trivial. I did this to solve the move, but 
+        //I'm almost sure there are better ways to solve this, but am too lazy currently to figure 
+        //it out -.-
+        console::log_1(&"processed".into());
         for op_val in operators {
             let op: Operation = serde_json::from_value(op_val).unwrap();
+            console::log_1(&"op".into());
 
-            let index = data.add_node(RefCell::new(op));
+            let index = data.add_node(RefCell::new(op.clone()));
+            console::log_1(&"added".into());
 
             match op {
                 Operation::Rootor(inner_op) => {
+                    console::log_1(&"root".into());
                     let option = root_id_map.insert(inner_op.root_id, index);
+                    console::log_1(&"insertr".into());
                 },
-                Operation::Leafor(inner_op) => leaf_id_vec.push(index),
-                _ => (),
+                Operation::Leafor(inner_op) => {
+                    console::log_1(&"leaf".into());
+                    leaf_id_vec.push(index);
+                    console::log_1(&"insertl".into());
+                },
+                _ => {
+                    console::log_1(&"otherwise".into());
+                }
             }
         } 
+        console::log_1(&"operators".into());
 
         let edges: Vec<Value> = serde_json::from_value(obj["edges"].clone()).unwrap();
 
+        console::log_1(&"processed".into());
         for edge in &edges {
             let pi: usize = serde_json::from_value(edge["parentindex"].clone()).unwrap();
             let pni = NodeIndex::new(pi);
             let ci: usize = serde_json::from_value(edge["childindex"].clone()).unwrap();
             let cni = NodeIndex::new(ci);
 
-            data.extend_with_edges(&[(pni, cni)]);
+            data.add_edge(pni, cni, {});
         }
+        console::log_1(&"edges".into());
 
         DataFlowGraph { data, root_id_map, leaf_id_vec }
     }
 
     /// Applies inserts and deletions sent to a specified Root, propogates them
     /// through graph relying on the recursive operator calls
-    pub fn change_to_root(&mut self, root_string: String, row_ins_js: &JsValue) {
+    pub fn change_to_root(&self, root_string: String, row_ins_js: &JsValue) {
         let root_node_index = *(self.root_id_map.get(&root_string).unwrap());
         let mut root_op = self.data.node_weight(root_node_index).unwrap().borrow_mut();
 

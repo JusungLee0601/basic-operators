@@ -5,63 +5,76 @@ import { View, Row, SchemaType, DataType, DataFlowGraph, Operation} from "noria-
 // const parent_view = View.newJS("Dummy", 0, columns, schema);
 
 var dummygraph = {
-    "operators": [{
-        "t": "Selector",
-        "c": {
-            "col_ind": 0,
-            "condition": {
-                "t": "Text",
-                "c": "dummy"
-            } 
-        }
-    }],
-    "edges": [{
-        "parentindex": 0,
-        "childindex": 1,
-    }, {
-        "parentindex": 0,
-        "childindex": 1,
-    }]
-
-
+    "operators": [
         {
-        "name": "first",
-        "columns": ["Article", "Count"],
-        "schema": ["Text", "Int"],
-        "table_index": 0
-    }, {
-        "name": "second",
-        "columns": ["Article", "Count"],
-        "schema": ["Text", "Int"],
-        "table_index": 0
-    }, {
-        "name": "third",
-        "columns": ["Article"],
-        "schema": ["Text"],
-        "table_index": 0
-    }],
-    "edges": [{
-        "parentindex": 0,
-        "childindex": 1,
-        "operation": {
+            "t": "Rootor",
+            "c": {
+                "root_id": "first"
+            }
+        },
+        {
             "t": "Selector",
             "c": {
-                "col_ind": 0,
+                "col_ind": 1,
                 "condition": {
-                    "t": "Text",
-                    "c": "dummy"
+                    "t": "Int",
+                    "c": 50
                 } 
             }
-        }
-    }, {
-        "parentindex": 1,
-        "childindex": 2,
-        "operation": {
+        },
+        {
             "t": "Projector",
             "c": {
                 "columns": [0]
             }
+        },
+        {
+            "t": "Aggregator",
+            "c": {
+                "group_by_col": [1]
+            }
+        },
+        {
+            "t": "Leafor",
+            "c": {
+                "mat_view": {
+                    "name": "first",
+                    "column_names": ["Article", "Count", "Agg count"],
+                    "schema": ["Text", "Int", "Int"],
+                    "key_index": 0
+                }
+            }
+        },
+        {
+            "t": "Leafor",
+            "c": {
+                "mat_view": {
+                    "name": "second",
+                    "column_names": ["Article"],
+                    "schema": ["Text"],
+                    "key_index": 0
+                }
+            }
         }
+    ],
+    "edges": [{
+        "parentindex": 0,
+        "childindex": 1,
+    }, {
+        "parentindex": 0,
+        "childindex": 2,
+    },
+    {
+        "parentindex": 1,
+        "childindex": 3,
+    },
+    {
+        "parentindex": 3,
+        "childindex": 4,
+    },
+    {
+        "parentindex": 2,
+        "childindex": 5,
     }]
 };
 
@@ -79,25 +92,8 @@ const addEntry = () => {
     var row = [articleString, count];
     console.log("send");
 
-    graph.process_insert("first", row);
+    graph.change_to_root("first", row);
 }
-
-// const select = () => {
-//     var searchCol = parseInt(document.getElementById("searchcol").value);
-//     var searchData = document.getElementById("searchdata").value;
-//     console.log("select");
-
-//     var selector = Selection.newJS(searchCol, searchData);
-//     var child_view = selector.select("child", parent_view);
-//     console.log("c");
-//     console.log(child_view.render());
-//     console.log("parent");
-//     console.log(parent_view.render());
-//     console.log("s");
-//     console.log(selector);
-//     graph.extend(parent_view, child_view, selector);
-// }
-
 
 document.getElementById("refresh").addEventListener("click", event => {refreshEntries();});
 document.getElementById("send").addEventListener("click", event => {addEntry();});
