@@ -336,15 +336,16 @@ impl Operator for Root {
     }
 
     /// For Root, process change does not "apply"/change the initial set of Changes as it is the Root
-    fn process_change(&mut self, change: Vec<Change>, dfg: &DataFlowGraph, parent_index: NodeIndex) { 
+    fn process_change(&mut self, change: Vec<Change>, dfg: &DataFlowGraph, parent_index: NodeIndex, self_index: NodeIndex) { 
         let graph = &(*dfg).data;
-        let neighbors_iterator = graph.neighbors(parent_index);
+        let neighbors_iterator = graph.neighbors(self_index);
 
         for child_index in neighbors_iterator {
             let child_cell = (*graph).node_weight(child_index).unwrap();
             let mut child_ref_mut = child_cell.borrow_mut();
 
-            (*child_ref_mut).process_change(change.clone(), dfg, child_index);
+            //the self become parent, child becomes self
+            (*child_ref_mut).process_change(change.clone(), dfg, self_index, child_index);
         }
     }
 }
@@ -573,6 +574,73 @@ impl Operator for Aggregation {
     }
 }
 
+//hashmap sorted by joined row, but can't be unique :(
+//using a vector of rows instead, keyed on the join columns for either left or right
+#[wasm_bindgen]
+#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize)]
+pub struct NaturalJoin {
+    parent_ids: Vec<NodeIndex>,
+    left_state: HashMap<Datatype, Vec<Row>>,
+    right_state: HashMap<Datatype, Vec<Row>>,
+    join_cols: Vec<usize>,
+}
+
+impl Operator for NaturalJoin {
+    fn apply(&mut self, prev_change_vec: Vec<Change>) -> Vec<Change> {
+        prev_change_vec
+    }
+
+    fn apply_join(&mut self, prev_change_vec: Vec<Change>, p_id: NodeIndex) -> Vec<Change> {
+        //pid check for left vs right
+        //in comparison to aggregate, don't think I need 'joined' state, because have to recheck and 
+        //redelete for ever ins/del
+
+        if p_id = self.parent_ids[0] {
+            for change in prev_change_vec {
+                match change.typing {
+                    ChangeType::Insertion => {
+                        for row in &(change.batch) {
+                            //first insert into left state
+                            let left_index = self.join_cols[0]
+
+                            //check to see if keyed value already exists
+                            match self.left_state.get_mut(row.data[left_index]) {
+                                None => self.left_state.insert(row.data[left_index].clone(), row.clone()),
+                                Some(vec) => *vec.push(row.clone()),
+                            }
+
+                            //perform join
+                            //do the rows have to be in a specific order?
+                            //is it wise to just push down and never record the joined resulting rows?
+                        }
+                        
+                    }
+                    ChangeType::Deletion =>
+                }
+            }
+        } else {
+            //left right idea worth it?
+
+        }
+    }
+
+    fn process_change(&mut self, change: Vec<Change>, dfg: &DataFlowGraph, parent_index: NodeIndex, self_index: NodeIndex) { 
+        next_change = self.apply(change, parent_index)
+        let graph = &(*dfg).data;
+        let neighbors_iterator = graph.neighbors(self_index);
+
+        for child_index in neighbors_iterator {
+            let child_cell = (*graph).node_weight(child_index).unwrap();
+            let mut child_ref_mut = child_cell.borrow_mut();
+
+            //the self become parent, child becomes self
+            (*child_ref_mut).process_change(change.clone(), dfg, self_index, child_index);
+        }
+    }
+}
+
+
 //-----------------------------Graph--------------------------------//
 
 //DataFlowGraph
@@ -641,7 +709,7 @@ impl DataFlowGraph {
         //Operator processing
         //Important to note that I'm allowing for cloning of operators. Mostly this clones small
         //bits of data like conditions and rows, but for Leaf this technically calls for cloning an
-        //entire view. I'm hoping let allow this only because at this stage, the graph operators
+        //entire view. I'm hoping to allow this only because at this stage, the graph operators
         //technically have empty fields for state and Views. If JSON were to be sent with non-empty
         //initial graphs, then this would no longer be trivial. I did this to solve the move, but 
         //I'm almost sure there are better ways to solve this, but am too lazy currently to figure 

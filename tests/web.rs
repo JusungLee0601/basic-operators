@@ -57,6 +57,10 @@ fn create_simple_graph() {
     assert_eq!(g.edge_count(), 2);
 }
 
+fn selection() {
+    
+}
+
 #[wasm_bindgen_test]
 fn aggregation_count() {
     // Graph:
