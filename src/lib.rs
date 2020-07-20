@@ -579,14 +579,15 @@ impl Operator for Aggregation {
 #[wasm_bindgen]
 #[derive(Debug, Clone)]
 #[derive(Serialize, Deserialize)]
-pub struct NaturalJoin {
+pub struct innerJoin {
     parent_ids: Vec<NodeIndex>,
     left_state: HashMap<Datatype, Vec<Row>>,
     right_state: HashMap<Datatype, Vec<Row>>,
     join_cols: Vec<usize>,
 }
 
-impl Operator for NaturalJoin {
+//maybe switch up views as well
+impl Operator for InnerJoin {
     fn apply(&mut self, prev_change_vec: Vec<Change>) -> Vec<Change> {
         prev_change_vec
     }
@@ -594,35 +595,146 @@ impl Operator for NaturalJoin {
     fn apply_join(&mut self, prev_change_vec: Vec<Change>, p_id: NodeIndex) -> Vec<Change> {
         //pid check for left vs right
         //in comparison to aggregate, don't think I need 'joined' state, because have to recheck and 
-        //redelete for ever ins/del
+        //changes don't "multiply", all unique changes and all their relevant joins get consolidated
+        //into one single change with a variety of vec<row>s in batch 
+        //LEFT LOSES JOIN VAL, RIGHT KEEPS AND IS APPENDED
+        let mut next_change_vec = Vec::new();
 
         if p_id = self.parent_ids[0] {
             for change in prev_change_vec {
                 match change.typing {
                     ChangeType::Insertion => {
+                        let new_change_batch = Vec::new()
+
                         for row in &(change.batch) {
                             //first insert into left state
-                            let left_index = self.join_cols[0]
+                            let join_val = row.data[self.join_cols[0]].clone();
 
                             //check to see if keyed value already exists
-                            match self.left_state.get_mut(row.data[left_index]) {
+                            match self.left_state.get_mut(join_val) {
                                 None => self.left_state.insert(row.data[left_index].clone(), row.clone()),
                                 Some(vec) => *vec.push(row.clone()),
                             }
 
-                            //perform join
-                            //do the rows have to be in a specific order?
-                            //is it wise to just push down and never record the joined resulting rows?
+                            match self.right_state.get_mut(join_val) {
+                                //no match, no changes downstream assuming excluded NULLS
+                                None => (),
+                                //group of matches, require downstream inserts
+                                Some(vec) => {
+                                    for right_row in vec {
+                                        let ins_row = row.clone().remove(self.join_cols[0]).append(right_row.clone());
+                                        new_change_batch.push(ins_row);
+                                    }
+                                },
+                            }
                         }
                         
+                        let insert_new = Change::new(ChangeType::Insertion, new_change_batch);
+                        next_change_vec.push(insert_new);
                     }
-                    ChangeType::Deletion =>
+                    ChangeType::Deletion => {
+                        let new_change_batch = Vec::new();
+
+                        for row in &(change.batch) {
+                            //remove from left state
+                            let join_val = row.data[self.join_cols[0]].clone();
+
+                            match self.left_state.get_mut(join_val) {
+                                //shouldn't happen, assumes deletion for an item that doesn't exist
+                                None => (),
+                                //vec of possible deletion matches, .remove_item should find if exists
+                                Some(vec) => *vec.remove_item(row_to_del),
+                            }
+
+                            //send deletions downstream
+                            match self.right_state.get_mut(join_val) {
+                                //no match, no changes downstream assuming excluded NULLS
+                                None => (),
+                                //group of matches, require downstream deletes
+                                Some(vec) => {
+                                    for right_row in vec {
+                                        let del_row = row.clone().remove(self.join_cols[0]).append(right_row);
+                                        new_change_batch.push(del_row);
+                                    }
+                                }
+                            }
+                        }
+
+                        let delete_new = Change::new(ChangeType::Deletion, new_change_batch);
+                        next_change_vec.push(delete_new);
+                    }
                 }
             }
         } else {
-            //left right idea worth it?
+            for change in prev_change_vec {
+                match change.typing {
+                    ChangeType::Insertion => {
+                        let new_change_batch = Vec::new()
 
+                        for row in &(change.batch) {
+                            //first insert into right state
+                            let join_val = row.data[self.join_cols[0]].clone();
+
+                            //check to see if keyed value already exists
+                            match self.right_state.get_mut(join_val) {
+                                None => self.right_state.insert(row.data[left_index].clone(), row.clone()),
+                                Some(vec) => *vec.push(row.clone()),
+                            }
+
+                            match self.left_state.get_mut(join_val) {
+                                //no match, no changes downstream assuming excluded NULLS
+                                None => (),
+                                //group of matches, require downstream inserts
+                                Some(vec) => {
+                                    for left_row in vec {
+                                        let ins_row = left_row.clone().remove(self.join_cols[0]).append(row.clone());
+                                        new_change_batch.push(ins_row);
+                                    }
+                                },
+                            }
+                        }
+                        
+                        let insert_new = Change::new(ChangeType::Insertion, new_change_batch);
+
+                        next_change_vec.push(insert_new);
+                    }
+                    ChangeType::Deletion => {
+                        let new_change_batch = Vec::new();
+
+                        for row in &(change.batch) {
+                            //remove from right state
+                            let join_val = row.data[self.join_cols[0]].clone();
+
+                            match self.right_state.get_mut(join_val) {
+                                //shouldn't happen, assumes deletion for an item that doesn't exist
+                                None => (),
+                                //vec of possible deletion matches, .remove_item should find if exists
+                                Some(vec) => *vec.remove_item(row_to_del),
+                            }
+
+                            //send deletions downstream
+                            match self.left_state.get_mut(join_val) {
+                                //no match, no changes downstream assuming excluded NULLS
+                                None => (),
+                                //group of matches, require downstream deletes
+                                Some(vec) => {
+                                    for left_row in vec {
+                                        let del_row = left_row.clone().remove(self.join_cols[0]).append(row.clone());
+                                        new_change_batch.push(del_row);
+                                    }
+                                }
+                            }
+                        }
+
+                        let delete_new = Change::new(ChangeType::Deletion, new_change_batch);
+
+                        next_change_vec.push(delete_new);
+                    }
+                }
+            }
         }
+
+        next_change_vec
     }
 
     fn process_change(&mut self, change: Vec<Change>, dfg: &DataFlowGraph, parent_index: NodeIndex, self_index: NodeIndex) { 
