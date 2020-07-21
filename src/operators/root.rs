@@ -1,12 +1,16 @@
 use serde::{Deserialize, Serialize};
-pub use crate::units::Change as Change;
+
+use crate::prelude::*;
+use crate::graph::DataFlowGraph;
+use crate::operators::Operator;
+use crate::units::change::Change;
 
 //Root Operator
 //root_id assumed unique, used for NodeIndex mapping to find in graph
 #[derive(Debug, Clone)]
 #[derive(Serialize, Deserialize)]
 pub struct Root {
-    root_id: String,
+    pub(crate) root_id: String,
 }
 
 //Operator Trait for Root
@@ -17,7 +21,7 @@ impl Operator for Root {
     }
 
     /// For Root, process change does not "apply"/change the initial set of Changes as it is the Root
-    fn process_change(&mut self, change: Vec<Change>, dfg: &DataFlowGraph, parent_index: NodeIndex) { 
+    fn process_change(&mut self, change: Vec<Change>, dfg: &DataFlowGraph, parent_index: NodeIndex) {
         let graph = &(*dfg).data;
         let neighbors_iterator = graph.neighbors(parent_index);
 

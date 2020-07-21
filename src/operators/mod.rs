@@ -1,11 +1,27 @@
+mod aggregation;
+mod leaf;
+mod projection;
+mod root;
+mod selection;
+
+use crate::prelude::*;
+use crate::graph::DataFlowGraph;
+use crate::units::change::Change;
+
+use selection::Selection;
+use projection::Projection;
+use aggregation::Aggregation;
+use root::Root;
+use leaf::Leaf;
+
 //Operator trait
 pub trait Operator {
     /// Returns Vec of Changes after operator conditions applied
-    fn apply(&mut self, prev_change: Vec<Change>) -> Vec<Change>; 
+    fn apply(&mut self, prev_change: Vec<Change>) -> Vec<Change>;
 
     /// Takes a set of Changes and propogates the Changes recursively through nodes children
     /// calls apply to generate new Change to send downward
-    fn process_change(&mut self, change: Vec<Change>, dfg: &DataFlowGraph, parent_index: NodeIndex) { 
+    fn process_change(&mut self, change: Vec<Change>, dfg: &DataFlowGraph, parent_index: NodeIndex) {
         let next_change = self.apply(change);
         let graph = &(*dfg).data;
         let neighbors_iterator = graph.neighbors(parent_index);
@@ -35,7 +51,7 @@ pub enum Operation {
 
 //Operator Trait for Operation Enum
 impl Operator for Operation {
-    fn apply(&mut self, prev_change: Vec<Change>) -> Vec<Change> { 
+    fn apply(&mut self, prev_change: Vec<Change>) -> Vec<Change> {
         match self {
             Operation::Selector(op) => op.apply(prev_change),
             Operation::Projector(op) => op.apply(prev_change),
@@ -45,7 +61,7 @@ impl Operator for Operation {
         }
     }
 
-    fn process_change(&mut self, change: Vec<Change>, dfg: &DataFlowGraph, parent_index: NodeIndex) { 
+    fn process_change(&mut self, change: Vec<Change>, dfg: &DataFlowGraph, parent_index: NodeIndex) {
         match self {
             Operation::Selector(op) => op.process_change(change, dfg, parent_index),
             Operation::Projector(op) => op.process_change(change, dfg, parent_index),

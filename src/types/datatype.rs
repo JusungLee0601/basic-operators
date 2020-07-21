@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use wasm_bindgen::JsValue;
 
 //Data
 #[derive(Debug)]
@@ -18,6 +19,19 @@ impl From<&JsValue> for DataType {
         if (*item).as_f64().is_some()  {
             DataType::Int(item.as_f64().unwrap() as i32)
         } else if (*item).as_string().is_some()  {
+            DataType::Text(item.as_string().unwrap())
+        } else {
+            DataType::None
+        }
+    }
+}
+
+//from conversion, JsValue->DataType
+impl From<JsValue> for DataType {
+    fn from(item: JsValue) -> Self {
+        if (item).as_f64().is_some()  {
+            DataType::Int(item.as_f64().unwrap() as i32)
+        } else if ( item).as_string().is_some()  {
             DataType::Text(item.as_string().unwrap())
         } else {
             DataType::None

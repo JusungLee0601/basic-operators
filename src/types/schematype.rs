@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use wasm_bindgen::JsValue;
 
 //Schema, for Views only
 #[derive(Debug, Clone, PartialEq)]

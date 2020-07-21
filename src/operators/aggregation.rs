@@ -1,30 +1,11 @@
-use serde::{Deserialize, Serialize};
-pub use crate::units::Change as Change;
+use wasm_bindgen::prelude::*;
+use std::collections::HashMap;
 
-//Operator Trait for Projection
-impl Operator for Projection {
-    fn apply(&mut self, prev_change_vec: Vec<Change>) -> Vec<Change> {
-        let mut next_change_vec = Vec::new();
-
-        for change in prev_change_vec {
-            let mut next_change = Change { typing: change.typing, batch: Vec::new()};
-
-            for row in &(change.batch) {
-                let mut changed_row = Row::new(Vec::new());
-
-                for index in &self.columns {
-                    changed_row.data.push(row.data[*index].clone());
-                }
-
-                next_change.batch.push(changed_row);
-            }
-
-            next_change_vec.push(next_change);
-        }
-
-        next_change_vec
-    }
-}
+use crate::operators::Operator;
+use crate::units::change::Change;
+use crate::types::changetype::ChangeType;
+use crate::types::datatype::DataType;
+use crate::units::row::Row;
 
 fn return_hash_a() -> HashMap<Vec<DataType>, Row> {
     HashMap::new()
@@ -57,10 +38,10 @@ impl Operator for Aggregation {
                     for row in &(change.batch) {
                         //form key to access aggregates in state
                         let mut temp_key = Vec::new();
-                        
+
                         for index in &self.group_by_col {
                             temp_key.push(row.data[*index].clone());
-                        } 
+                        }
 
                         match self.state.get_mut(&temp_key) {
                             None => {
@@ -69,7 +50,7 @@ impl Operator for Aggregation {
 
                                 for index in &self.group_by_col {
                                     new_row_vec.push(row.data[*index].clone());
-                                } 
+                                }
 
                                 //copy for key in hashmap
                                 let new_row_key = new_row_vec.clone();
@@ -84,10 +65,10 @@ impl Operator for Aggregation {
 
                                 let mut change_rows = Vec::new();
                                 change_rows.push(new_row.clone());
-                            
+
                                 //send insertion change downstream
                                 let new_group_change = Change::new(ChangeType::Insertion, change_rows);
-                                next_change_vec.push(new_group_change); 
+                                next_change_vec.push(new_group_change);
                             },
                             Some(row_to_incr) => {
                                 //sends deletion change downstream
@@ -120,10 +101,10 @@ impl Operator for Aggregation {
                     //multiple rows in a single Change
                     for row in &(change.batch) {
                         let mut temp_key = Vec::new();
-                        
+
                         for index in &self.group_by_col {
                             temp_key.push(row.data[*index].clone());
-                        } 
+                        }
 
                         match self.state.get_mut(&temp_key) {
                             Some(row_to_decr) => {
