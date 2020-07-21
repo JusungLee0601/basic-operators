@@ -5,6 +5,7 @@ mod root;
 mod selection;
 
 use crate::prelude::*;
+use crate::graph::DataFlowGraph;
 use crate::units::change::Change;
 
 use selection::Selection;

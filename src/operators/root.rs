@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::prelude::*;
+use crate::graph::DataFlowGraph;
 use crate::operators::Operator;
 use crate::units::change::Change;
 
