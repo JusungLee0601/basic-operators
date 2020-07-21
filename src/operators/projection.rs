@@ -1,5 +1,8 @@
 use serde::{Deserialize, Serialize};
-pub use crate::units::Change as Change;
+
+use crate::operators::Operator;
+use crate::units::change::Change;
+use crate::units::row::Row;
 
 //Projection Operator
 #[derive(Debug, Clone)]

@@ -1,6 +1,10 @@
 use serde::{Deserialize, Serialize};
-pub use crate::units::Change as Change;
-pub use crate::view as View;
+use wasm_bindgen::prelude::*;
+
+use crate::prelude::*;
+use crate::operators::Operator;
+use crate::units::change::Change;
+use crate::view::View;
 
 //Leaf Operator
 //stored view is what is "accessed" by JS
@@ -21,7 +25,7 @@ impl Operator for Leaf {
     }
 
     /// Doesn't apply to the rest of the operators as it is the Leaf
-    fn process_change(&mut self, change: Vec<Change>, dfg: &DataFlowGraph, parent_index: NodeIndex) { 
+    fn process_change(&mut self, change: Vec<Change>, dfg: &DataFlowGraph, parent_index: NodeIndex) {
         self.apply(change);
     }
 }

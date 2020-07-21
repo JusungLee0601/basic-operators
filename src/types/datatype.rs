@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use wasm_bindgen::JsValue;
 
 //Data
 #[derive(Debug)]

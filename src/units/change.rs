@@ -1,5 +1,5 @@
-pub use crate::types::ChangeType as ChangeType
-pub use crate::units::Row as Row
+pub use crate::types::changetype::ChangeType;
+pub use crate::units::row::Row;
 
 //Change, typing shows ChangeType, batch holds multiple potential changes
 #[derive(Debug, Clone, PartialEq)]

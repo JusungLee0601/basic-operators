@@ -1,9 +1,11 @@
 use serde::{Deserialize, Serialize};
+use wasm_bindgen::prelude::*;
+
 use std::fmt;
-pub use crate::types::DataType as DataType
+use crate::types::datatype::DataType;
 
 //Row, allows 2d representation in tables
-#[wasm_bindgen]     
+#[wasm_bindgen]
 #[derive(Debug)]
 #[derive(Hash, Eq, PartialEq, Clone)]
 #[derive(Serialize, Deserialize)]
@@ -22,7 +24,7 @@ impl fmt::Display for Row {
     }
 }
 
-//Row functions 
+//Row functions
 impl Row {
     //constructor
     pub fn new(data: Vec<DataType>) -> Row {

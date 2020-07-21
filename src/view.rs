@@ -2,9 +2,11 @@ use std::fmt;
 use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
-pub use crate::types::SchemaType as SchemaType
-//pub use crate::units::Row as Row
-pub use crate::units::Change as Change
+use crate::types::schematype::SchemaType;
+use crate::types::changetype::ChangeType;
+use crate::types::datatype::DataType;
+use crate::units::change::Change;
+use crate::units::row::Row;
 
 fn return_hash_v() -> HashMap<DataType, Row> {
     HashMap::new()
