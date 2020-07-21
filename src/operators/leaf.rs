@@ -13,7 +13,7 @@ use crate::view::View;
 #[derive(Debug, Clone)]
 #[derive(Serialize, Deserialize)]
 pub struct Leaf {
-    mat_view: View,
+    pub(crate) mat_view: View,
 }
 
 //Operator Trait for Leaf

@@ -10,7 +10,7 @@ use crate::units::change::Change;
 #[derive(Debug, Clone)]
 #[derive(Serialize, Deserialize)]
 pub struct Root {
-    root_id: String,
+    pub(crate) root_id: String,
 }
 
 //Operator Trait for Root

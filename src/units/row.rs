@@ -10,7 +10,7 @@ use crate::types::datatype::DataType;
 #[derive(Hash, Eq, PartialEq, Clone)]
 #[derive(Serialize, Deserialize)]
 pub struct Row {
-    data: Vec<DataType>
+    pub(crate) data: Vec<DataType>
 }
 
 //display Rows

@@ -4,8 +4,8 @@ pub use crate::units::row::Row;
 //Change, typing shows ChangeType, batch holds multiple potential changes
 #[derive(Debug, Clone, PartialEq)]
 pub struct Change {
-    typing: ChangeType,
-    batch: Vec<Row>
+    pub(crate) typing: ChangeType,
+    pub(crate) batch: Vec<Row>
 }
 
 //Change functions

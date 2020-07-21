@@ -4,7 +4,7 @@
 
 extern crate wasm_bindgen_test;
 use wasm_bindgen_test::*;
-use noria_clientside::DataFlowGraph;
+use noria_clientside::graph::DataFlowGraph;
 wasm_bindgen_test_configure!(run_in_browser);
 
 #[wasm_bindgen_test]
@@ -58,7 +58,7 @@ fn create_simple_graph() {
 }
 
 fn selection() {
-    
+
 }
 
 #[wasm_bindgen_test]
@@ -74,7 +74,7 @@ fn aggregation_count() {
     //                          FROM table
     //                          WHERE article_author = ?
     //                          GROUP BY article_tag, article_author;
-    //let graph = r##"..."##;
+    let graph = r##"..."##;
 
     let g = DataFlowGraph::new(graph.to_owned());
     assert_eq!(g.node_count(), 3);
@@ -111,7 +111,7 @@ fn aggregation_sum() {
     //                          FROM table
     //                          WHERE article_author = ?
     //                          GROUP BY article_tag, article_author;
-    //let graph = r##"..."##;
+    let graph = r##"..."##;
 
     let g = DataFlowGraph::new(graph.to_owned());
     assert_eq!(g.node_count(), 3);

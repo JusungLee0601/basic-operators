@@ -26,6 +26,19 @@ impl From<&JsValue> for DataType {
     }
 }
 
+//from conversion, JsValue->DataType
+impl From<JsValue> for DataType {
+    fn from(item: JsValue) -> Self {
+        if (item).as_f64().is_some()  {
+            DataType::Int(item.as_f64().unwrap() as i32)
+        } else if ( item).as_string().is_some()  {
+            DataType::Text(item.as_string().unwrap())
+        } else {
+            DataType::None
+        }
+    }
+}
+
 //displays DataTypes
 impl fmt::Display for DataType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

@@ -19,7 +19,7 @@ use crate::units::row::Row;
 #[wasm_bindgen]
 #[derive(Debug)]
 pub struct DataFlowGraph {
-    data: Graph<RefCell<Operation>, ()>,
+    pub(crate) data: Graph<RefCell<Operation>, ()>,
     root_id_map: HashMap<String, NodeIndex>,
     leaf_id_vec: Vec<NodeIndex>,
 }
