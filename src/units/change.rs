@@ -1,11 +1,11 @@
-pub use crate::types::ChangeType as ChangeType
-pub use crate::units::Row as Row
+use crate::types::changetype::ChangeType;
+use crate::units::row::Row;
 
 //Change, typing shows ChangeType, batch holds multiple potential changes
 #[derive(Debug, Clone, PartialEq)]
 pub struct Change {
-    typing: ChangeType,
-    batch: Vec<Row>
+    pub typing: ChangeType,
+    pub batch: Vec<Row>
 }
 
 //Change functions

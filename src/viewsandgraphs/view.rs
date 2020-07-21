@@ -2,9 +2,12 @@ use std::fmt;
 use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
-pub use crate::types::SchemaType as SchemaType
-//pub use crate::units::Row as Row
-pub use crate::units::Change as Change
+use crate::types::changetype::ChangeType;
+use crate::types::datatype::DataType;
+use crate::types::schematype::SchemaType;
+use crate::units::row::Row;
+use crate::units::change::Change;
+use wasm_bindgen::prelude::*;
 
 fn return_hash_v() -> HashMap<DataType, Row> {
     HashMap::new()
@@ -12,6 +15,7 @@ fn return_hash_v() -> HashMap<DataType, Row> {
 
 //View
 //name: string name, assumed unique
+#[wasm_bindgen]
 #[derive(Debug, Clone)]
 #[derive(Serialize, Deserialize)]
 pub struct View {
@@ -34,12 +38,22 @@ impl fmt::Display for View {
             write!(f, "{:#?} \n", row);
         }
 
+        //write!(f, "{:#?}", self)
+
         Ok(())
     }
 }
 
 //View functions, unexposed
 impl View {
+    /// Returns View assuming empty table
+    pub fn newJSON(name: String, key_index: usize, column_names: Vec<String>, 
+        schema: Vec<SchemaType>) -> View {
+        let table = HashMap::new();
+
+        View {name, key_index, column_names, schema, table}
+    }
+
     /// Changes View's table given a vector of Changes
     pub fn change_table(&mut self, change_vec: Vec<Change>) {
         for change in &change_vec {
@@ -57,7 +71,11 @@ impl View {
             }
         }
     }
+}
 
+//View functions, exposed
+#[wasm_bindgen]
+impl View {
     /// Returns View as a String
     pub fn render(&self) -> String {
         self.to_string()

@@ -1,14 +1,13 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
-pub use crate::types::DataType as DataType
+use crate::types::datatype::DataType;
 
-//Row, allows 2d representation in tables
-#[wasm_bindgen]     
+//Row, allows 2d representation in tables 
 #[derive(Debug)]
 #[derive(Hash, Eq, PartialEq, Clone)]
 #[derive(Serialize, Deserialize)]
 pub struct Row {
-    data: Vec<DataType>
+    pub data: Vec<DataType>
 }
 
 //display Rows

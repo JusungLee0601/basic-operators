@@ -1,7 +1,12 @@
 use serde::{Deserialize, Serialize};
-pub use crate::units::Change as Change;
+
+use crate::units::row::Row;
+use crate::units::change::Change;
+use crate::operators::Operator;
+use wasm_bindgen::prelude::*;
 
 //Projection Operator
+#[wasm_bindgen]
 #[derive(Debug, Clone)]
 #[derive(Serialize, Deserialize)]
 pub struct Projection {

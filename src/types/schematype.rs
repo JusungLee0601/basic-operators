@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
+use wasm_bindgen::JsValue;
+use wasm_bindgen::prelude::*;
 
 //Schema, for Views only
+#[wasm_bindgen]
 #[derive(Debug, Clone, PartialEq)]
 #[derive(Serialize, Deserialize)]
 pub enum SchemaType {
