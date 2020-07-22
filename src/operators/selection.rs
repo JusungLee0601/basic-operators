@@ -20,7 +20,7 @@ impl Operator for Selection {
         let mut next_change_vec = Vec::new();
 
         for change in prev_change_vec {
-            let mut next_change = Change { typing: change.typing, batch: Vec::new()};
+            let mut next_change = Change {typing: change.typing, batch: Vec::new()};
 
             for row in &(change.batch) {
                 if row.data[self.col_ind] == self.condition {

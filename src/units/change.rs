@@ -1,7 +1,10 @@
+use serde::{Deserialize, Serialize};
+
 use crate::types::changetype::ChangeType;
 use crate::units::row::Row;
 
 //Change, typing shows ChangeType, batch holds multiple potential changes
+#[derive(Serialize, Deserialize)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct Change {
     pub typing: ChangeType,

@@ -24,7 +24,7 @@ pub struct View {
     schema: Vec<SchemaType>,
     key_index: usize,
     #[serde(default = "return_hash_v")]
-    table: HashMap<DataType, Row>,
+    pub(crate) table: HashMap<DataType, Row>,
 }
 
 //displays View

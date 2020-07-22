@@ -15,6 +15,7 @@ use crate::units::change::Change;
 use crate::types::datatype::DataType;
 use crate::types::changetype::ChangeType;
 use crate::operators::operation::Operation;
+use crate::operators::operation::Operation::Leafor;
 
 //DataFlowGraph
 //root_id_map: map of root_id's to their NodeIndexes
@@ -22,7 +23,7 @@ use crate::operators::operation::Operation;
 #[wasm_bindgen]
 #[derive(Debug)]
 pub struct DataFlowGraph {
-    pub data: Graph<RefCell<Operation>, ()>,
+    pub(crate) data: Graph<RefCell<Operation>, ()>,
     root_id_map: HashMap<String, NodeIndex>,
     leaf_id_vec: Vec<NodeIndex>,
 }
@@ -131,19 +132,38 @@ impl DataFlowGraph {
 
     /// Applies inserts and deletions sent to a specified Root, propogates them
     /// through graph relying on the recursive operator calls
-    pub fn change_to_root(&self, root_string: String, row_ins_js: &JsValue) {
+    pub fn change_to_root_js(&self, root_string: String, row_chng: &JsValue) {
         let root_node_index = *(self.root_id_map.get(&root_string).unwrap());
         let mut root_op = self.data.node_weight(root_node_index).unwrap().borrow_mut();
 
-        let mut row_ins_rust = match Self::process_into_row(&row_ins_js) {
+        let mut row_chng_rust = match Self::process_into_row(&row_chng) {
             Ok(row) => row,
             Err(err) => Row::new(Vec::new()),
         };  
 
-        let change_ins = Change::new(ChangeType::Insertion, vec![row_ins_rust]);
-        let mut change_vec = vec![change_ins];
+        let change = Change::new(ChangeType::Insertion, vec![row_chng_rust]);
+        let mut change_vec = vec![change];
         
         root_op.process_change(change_vec, self, root_node_index, root_node_index);
+    }
+
+    pub fn change_to_root_json(&self, root_string: String, row_chng_json: String) {
+        console::log_1(&"change".into());
+        
+        let change: Change = serde_json::from_str(&row_chng_json).unwrap();
+
+        console::log_1(&"changeregis".into());
+        let root_node_index = *(self.root_id_map.get(&root_string).unwrap());
+        let mut root_op = self.data.node_weight(root_node_index.clone()).unwrap().borrow_mut();
+
+        console::log_1(&"root op".into());
+
+        let change_vec = vec![change];
+
+        console::log_1(&"changevec".into()); 
+        
+        root_op.process_change(change_vec, self, NodeIndex::new(1), root_node_index.clone());
+        console::log_1(&"processing".into()); 
     }
 
     pub fn render(&self) -> String {
@@ -155,6 +175,21 @@ impl DataFlowGraph {
     }
 
     pub fn edge_count(&self) -> usize {
-        self.data.node_count()
+        self.data.edge_count()
+    }
+
+    pub fn leaf_counts(&self) -> Vec<usize> {
+        let mut node_vec = Vec::new();
+
+        for index in &self.leaf_id_vec {
+            let leaf_ref = self.data.node_weight(*index).unwrap().borrow_mut();
+
+            match &*leaf_ref {
+                Leafor(leaf) => node_vec.push(leaf.mat_view.table.len()),
+                _ => (),
+            };
+        }
+
+        node_vec
     }
 }
