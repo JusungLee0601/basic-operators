@@ -4,8 +4,6 @@ use petgraph::graph::NodeIndex;
 use crate::operators::Operator;
 use wasm_bindgen::prelude::*;
 
-use web_sys::console;
-
 //Root Operator
 //root_id assumed unique, used for NodeIndex mapping to find in graph
 #[wasm_bindgen]
@@ -24,24 +22,18 @@ impl Operator for Root {
 
     /// For Root, process change does not "apply"/change the initial set of Changes as it is the Root
     fn process_change(&mut self, change: Vec<Change>, dfg: &DataFlowGraph, _parent_index: NodeIndex, self_index: NodeIndex) { 
-        console::log_1(&"into".into()); 
 
         let graph = &(*dfg).data;
-        let neighbors_iterator = graph.neighbors(self_index);
+        let neighbors_iterator = graph.neighbors(self_index); 
 
-        console::log_1(&"neighbors".into()); 
-
-        for child_index in neighbors_iterator {
-            console::log_1(&"children".into()); 
+        for child_index in neighbors_iterator { 
             let child_cell = (*graph).node_weight(child_index).unwrap();
             let mut child_ref_mut = child_cell.borrow_mut();
-
-            console::log_1(&"borrowed".into()); 
+ 
 
             //the self become parent, child becomes self
             (*child_ref_mut).process_change(change.clone(), dfg, self_index   , child_index);
-
-            console::log_1(&"nice".into()); 
+ 
         }
     }
 }

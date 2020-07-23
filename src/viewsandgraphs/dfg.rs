@@ -1,10 +1,9 @@
 use std::fmt;
 use std::collections::HashMap;
 use wasm_bindgen::prelude::*;
-use web_sys::console;
-use serde_json::Value;
 use std::cell::{RefCell};
 use petgraph::graph::Graph;
+use serde_json::Value;
 
 use petgraph::graph::NodeIndex;
 use crate::operators::Operator;
@@ -86,35 +85,28 @@ impl DataFlowGraph {
         //initial graphs, then this would no longer be trivial. I did this to solve the move, but 
         //I'm almost sure there are better ways to solve this, but am too lazy currently to figure 
         //it out -.-
-        console::log_1(&"processed".into());
+        
         for op_val in operators {
             let op: Operation = serde_json::from_value(op_val).unwrap();
-            console::log_1(&"op".into());
 
             let index = data.add_node(RefCell::new(op.clone()));
-            console::log_1(&"added".into());
 
             match op {
-                Operation::Rootor(inner_op) => {
-                    console::log_1(&"root".into());
+                Operation::Rootor(inner_op) => {    
                     root_id_map.insert(inner_op.root_id, index);
-                    console::log_1(&"insertr".into());
+                    
                 },
-                Operation::Leafor(_inner_op) => {
-                    console::log_1(&"leaf".into());
-                    leaf_id_vec.push(index);
-                    console::log_1(&"insertl".into());
+                Operation::Leafor(_inner_op) => {    
+                    leaf_id_vec.push(index);  
                 },
                 _ => {
-                    console::log_1(&"otherwise".into());
+                    
                 }
             }
-        } 
-        console::log_1(&"operators".into());
+        }     
 
         let edges: Vec<Value> = serde_json::from_value(obj["edges"].clone()).unwrap();
-
-        console::log_1(&"processed".into());
+        
         for edge in &edges {
             let pi: usize = serde_json::from_value(edge["parentindex"].clone()).unwrap();
             let pni = NodeIndex::new(pi);
@@ -122,8 +114,7 @@ impl DataFlowGraph {
             let cni = NodeIndex::new(ci);
 
             data.add_edge(pni, cni, {});
-        }
-        console::log_1(&"edges".into());
+        } 
 
         DataFlowGraph { data, root_id_map, leaf_id_vec }
     }
@@ -146,22 +137,14 @@ impl DataFlowGraph {
     }
 
     pub fn change_to_root_json(&self, root_string: String, row_chng_json: String) {
-        console::log_1(&"change".into());
-        
         let change: Change = serde_json::from_str(&row_chng_json).unwrap();
 
-        console::log_1(&"changeregis".into());
         let root_node_index = *(self.root_id_map.get(&root_string).unwrap());
         let mut root_op = self.data.node_weight(root_node_index.clone()).unwrap().borrow_mut();
 
-        console::log_1(&"root op".into());
-
         let change_vec = vec![change];
 
-        console::log_1(&"changevec".into()); 
-        
         root_op.process_change(change_vec, self, NodeIndex::new(1), root_node_index.clone());
-        console::log_1(&"processing".into()); 
     }
 
     pub fn render(&self) -> String {

@@ -198,7 +198,7 @@ fn selection_unit_test() {
 
     match &*leaf_op {
         Leafor(leaf) => {
-            console::log_1(&"leafEntered".into());
+    
             let lri_row = (*leaf).mat_view.table.get(&DataType::Text("Doomsday".to_string())).unwrap();
             let test_row = Row::new(vec![DataType::Text("Doomsday".to_string()), DataType::Int(50)]);
         
@@ -211,7 +211,7 @@ fn selection_unit_test() {
 
     match &*leaf_op_two {
         Leafor(leaf) => {
-            console::log_1(&"leafEntered2".into());
+    
             let lri_row = (*leaf).mat_view.table.get(&DataType::Text("Doomsday".to_string())).unwrap();
             let test_row = Row::new(vec![DataType::Text("Doomsday".to_string()), DataType::Int(49)]);
         
@@ -397,7 +397,7 @@ fn projection_unit_test() {
 
     match &*leaf_op {
         Leafor(leaf) => {
-            console::log_1(&"leafEntered".into());
+    
             let lri_row = (*leaf).mat_view.table.get(&DataType::Text("Article 0".to_string())).unwrap();
             let test_row = Row::new(vec![DataType::Text("Article 0".to_string()), DataType::Text("Author 0".to_string())]);
         
@@ -420,7 +420,7 @@ fn projection_unit_test() {
 
     match &*leaf_op_two {
         Leafor(leaf) => {
-            console::log_1(&"leafEntered2".into());
+    
             let lri_row = (*leaf).mat_view.table.get(&DataType::Int(48)).unwrap();
             let test_row = Row::new(vec![DataType::Int(48)]);
 
@@ -617,7 +617,7 @@ fn aggregation_unit_test() {
 
     match &*leaf_op {
         Leafor(leaf) => {
-            console::log_1(&"leafEnteredagg".into());
+    
             let lri_row = (*leaf).mat_view.table.get(&DataType::Text("Article 0".to_string())).unwrap();
             let test_row = Row::new(vec![DataType::Text("Article 0".to_string()), DataType::Text("Author 0".to_string()), DataType::Int(2)]);
         
@@ -635,7 +635,7 @@ fn aggregation_unit_test() {
 
     match &*leaf_op_two {
         Leafor(leaf) => {
-            console::log_1(&"leafEntered2".into());
+    
             let lri_row = (*leaf).mat_view.table.get(&DataType::Int(48)).unwrap();
             let test_row = Row::new(vec![DataType::Int(48), DataType::Int(1)]);
 
@@ -657,7 +657,7 @@ fn aggregation_unit_test() {
         
 }
 
-#[wasm_bindgen_test]
+//#[wasm_bindgen_test]
 fn innerjoin_unit_test() {
     //first has [ArticleName, Author]
     //second has [PublisherName, ArticleName]
@@ -845,19 +845,13 @@ fn innerjoin_unit_test() {
         ]
     }"##;
 
-    let sin_row_del_right = [template_one, &author_id, template_two, &story_id, template_three].concat();
-
-    console::log_1(&"BUILD".into());
 
     g_unit.change_to_root_json("first".to_owned(), sin_row_ins_left.to_owned());
     g_unit.change_to_root_json("second".to_owned(), sin_row_ins_right.to_owned());
     g_unit.change_to_root_json("first".to_owned(), mult_row_ins_left.to_owned());
     g_unit.change_to_root_json("second".to_owned(), mult_row_ins_right.to_owned());
-    console::log_1(&"del1".into());
     g_unit.change_to_root_json("first".to_owned(), sin_row_del_left.to_owned());
-    console::log_1(&"del2".into());
     g_unit.change_to_root_json("second".to_owned(), sin_row_del_right.to_owned());
-    console::log_1(&"del3".into());
 
     assert_eq!(g_unit.leaf_counts(), vec![1]);
 
@@ -865,7 +859,6 @@ fn innerjoin_unit_test() {
 
     match &*leaf_op {
         Leafor(leaf) => {
-            console::log_1(&"leafEntered".into());
             let lri_row = (*leaf).mat_view.table.get(&DataType::Text("Author 1".to_string())).unwrap();
             let test_row = Row::new(vec![DataType::Text("Author 1".to_string()), DataType::Text("Publisher 2".to_string()), DataType::Text("Article 1".to_string())]);
         
@@ -877,6 +870,7 @@ fn innerjoin_unit_test() {
 
 fn author_story_inserts() -> Vec<String> {
     let mut str_vec = Vec::new();
+    let mut story_count = 1;
 
     let template_one = r##"{
         "typing": "Insertion",
@@ -898,12 +892,13 @@ fn author_story_inserts() -> Vec<String> {
     }"##;
 
     for n in 1..401 {
-        for _z in 1..6 {
-            let story_id = &n.to_string();
-            let user_id = &story_count.to_string();  
+        for z in 1..6 {
+            let story_id = &story_count.to_string();
+            let user_id = &n.to_string();  
 
-            let change_json = [template_one, &story_id, template_two, &user_id, template_three].concat();
+            let change_json = [template_one, &user_id, template_two, &story_id, template_three].concat();
             str_vec.push(change_json);
+            story_count = story_count + 1;
         }
     }
 
@@ -912,10 +907,9 @@ fn author_story_inserts() -> Vec<String> {
 
 fn story_voter_inserts() -> Vec<String> {
     let mut str_vec = Vec::new();
-    let mut story_count = 1;
 
     let template_one = r##"{
-        "typing": "Deletion",
+        "typing": "Insertion",
         "batch": [
             {
                 "data": [
@@ -939,9 +933,8 @@ fn story_voter_inserts() -> Vec<String> {
             let author_id = &n.to_string();
             let user_id = z.to_string();                   
 
-            let change_json = [template_one, &author_id, template_two, &story_id, template_three].concat();
+            let change_json = [template_one, &author_id, template_two, &user_id, template_three].concat();
             str_vec.push(change_json);
-            story_count = story_count + 1;
         }
     }
 
@@ -953,7 +946,7 @@ fn user_email_inserts() -> Vec<String> {
     let mut story_count = 1;
 
     let template_one = r##"{
-        "typing": "Deletion",
+        "typing": "Insertion",
         "batch": [
             {
                 "data": [
@@ -977,7 +970,7 @@ fn user_email_inserts() -> Vec<String> {
             let user_id = &n.to_string();
             let email = z.to_string();                   
 
-            let change_json = [template_one, &author_id, template_two, &story_id, template_three].concat();
+            let change_json = [template_one, &user_id, template_two, &email, template_three].concat();
             str_vec.push(change_json);
             story_count = story_count + 1;
         }
@@ -988,7 +981,7 @@ fn user_email_inserts() -> Vec<String> {
 
 #[wasm_bindgen_test]
 fn write_throughput_votecounts() {
-    let graph_json = r##"{
+    let full_graph = r##"{
         "operators": [
                 {
                     "t": "Rootor",
@@ -1089,17 +1082,88 @@ fn write_throughput_votecounts() {
             "childindex": 8
         }]
     }"##;
+    // let graph = DataFlowGraph::new(graph_json.to_owned());
+    // assert_eq!(g_unit.node_count(), 9);
+    // assert_eq!(g_unit.edge_count(), 8);
+
+    let graph_json = r##"{
+        "operators": [
+                {
+                    "t": "Rootor",
+                    "c": {
+                        "root_id": "AuthorStory"
+                    }
+                },
+                {
+                    "t": "Rootor",
+                    "c": {
+                        "root_id": "StoryVoter"
+                    }
+                },
+                {
+                    "t": "Aggregator",
+                    "c": {
+                        "group_by_col": [0]
+                    }
+                },
+                {
+                    "t": "InnerJoinor",
+                    "c": {
+                        "parent_ids": [0, 1],
+                        "join_cols": [1, 0]
+                    }
+                },
+                {
+                    "t": "Leafor",
+                    "c": {
+                        "mat_view": {
+                            "name": "Users and VoteCounts",
+                            "column_names": ["AuthorUserID", "StoryID", "StoryVoteCount"],
+                            "schema": ["Int", "Int", "Int"],
+                            "key_index": 1
+                        }
+                    }
+                }
+            ],
+        "edges": [{
+            "parentindex": 0,
+            "childindex": 3
+        }, {
+            "parentindex": 1,
+            "childindex": 2
+        },
+        {
+            "parentindex": 2,
+            "childindex": 3
+        },
+        {
+            "parentindex": 3,
+            "childindex": 4
+        }]
+    }"##;
 
     let graph = DataFlowGraph::new(graph_json.to_owned());
 
-    assert_eq!(g_unit.node_count(), 9);
-    assert_eq!(g_unit.edge_count(), 8);
+    assert_eq!(graph.node_count(), 5);
+    assert_eq!(graph.edge_count(), 4);
 
     let author_story_inserts = author_story_inserts();
     let story_voter_inserts = story_voter_inserts();
-    let user_email_inserts = user_email_inserts();
 
-    g_unit.change_to_root_json("first".to_owned(), sin_row_ins_left.to_owned());
+    let now_instant = instant::Instant::new();
+
+    for change in author_story_inserts.iter() {
+        graph.change_to_root_json("AuthorStory".to_owned(), change.to_string());
+    }
+
+    for change in story_voter_inserts.iter() {
+        graph.change_to_root_json("StoryVoter".to_owned(), change.to_string());
+    }
+
+    let now_milliseconds = instant::now(); // In milliseconds.
+    println!("{}", now_milliseconds);
+
+    assert_eq!(graph.leaf_counts(), vec![2000]);
 }
 
 
