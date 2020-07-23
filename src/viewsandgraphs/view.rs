@@ -1,6 +1,5 @@
 use std::fmt;
 use std::collections::HashMap;
-use serde::{Deserialize, Serialize};
 
 use crate::types::changetype::ChangeType;
 use crate::types::datatype::DataType;
@@ -34,7 +33,7 @@ impl fmt::Display for View {
         for strings in self.column_names.iter() {
             write!(f, "{}", strings);
         }
-        for (key, row) in self.table.iter() {
+        for (_key, row) in self.table.iter() {
             write!(f, "{:#?} \n", row);
         }
 

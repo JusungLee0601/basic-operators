@@ -1,5 +1,3 @@
-use serde::{Deserialize, Serialize};
-
 use crate::units::row::Row;
 use crate::units::change::Change;
 use crate::types::changetype::ChangeType;
@@ -10,6 +8,10 @@ use crate::operators::Operator;
 use std::collections::HashMap;
 use wasm_bindgen::prelude::*;
 
+fn return_hash_i() -> HashMap<DataType, Vec<Row>> {
+    HashMap::new()
+}
+
 //hashmap sorted by joined row, but can't be unique :(
 //using a vector of rows instead, keyed on the join columns for either left or right
 #[wasm_bindgen]
@@ -17,7 +19,9 @@ use wasm_bindgen::prelude::*;
 #[derive(Serialize, Deserialize)]
 pub struct InnerJoin {
     parent_ids: Vec<usize>,
+    #[serde(default = "return_hash_i")]
     left_state: HashMap<DataType, Vec<Row>>,
+    #[serde(default = "return_hash_i")]
     right_state: HashMap<DataType, Vec<Row>>,
     join_cols: Vec<usize>,
 }

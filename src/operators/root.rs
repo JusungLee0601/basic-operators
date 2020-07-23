@@ -1,5 +1,3 @@
-use serde::{Deserialize, Serialize};
-
 use crate::units::change::Change;
 use crate::viewsandgraphs::dfg::DataFlowGraph;
 use petgraph::graph::NodeIndex;
@@ -25,7 +23,7 @@ impl Operator for Root {
     }
 
     /// For Root, process change does not "apply"/change the initial set of Changes as it is the Root
-    fn process_change(&mut self, change: Vec<Change>, dfg: &DataFlowGraph, parent_index: NodeIndex, self_index: NodeIndex) { 
+    fn process_change(&mut self, change: Vec<Change>, dfg: &DataFlowGraph, _parent_index: NodeIndex, self_index: NodeIndex) { 
         console::log_1(&"into".into()); 
 
         let graph = &(*dfg).data;
@@ -41,7 +39,7 @@ impl Operator for Root {
             console::log_1(&"borrowed".into()); 
 
             //the self become parent, child becomes self
-            (*child_ref_mut).process_change(change.clone(), dfg, self_index, child_index);
+            (*child_ref_mut).process_change(change.clone(), dfg, self_index   , child_index);
 
             console::log_1(&"nice".into()); 
         }

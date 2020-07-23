@@ -1,5 +1,3 @@
-use serde::{Deserialize, Serialize};
-
 use crate::types::changetype::ChangeType;
 use crate::units::row::Row;
 

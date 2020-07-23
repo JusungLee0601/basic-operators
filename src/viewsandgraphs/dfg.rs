@@ -1,11 +1,9 @@
 use std::fmt;
 use std::collections::HashMap;
-use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 use web_sys::console;
 use serde_json::Value;
-use std::cell::{RefCell, RefMut};
-use std::cell::Ref;
+use std::cell::{RefCell};
 use petgraph::graph::Graph;
 
 use petgraph::graph::NodeIndex;
@@ -16,6 +14,8 @@ use crate::types::datatype::DataType;
 use crate::types::changetype::ChangeType;
 use crate::operators::operation::Operation;
 use crate::operators::operation::Operation::Leafor;
+
+// CURRENT GRAPH DOES NOT END CHANGE CHAIN EARLY, SIGNIFICANT EFFECT ON THROUGHPUT
 
 //DataFlowGraph
 //root_id_map: map of root_id's to their NodeIndexes
@@ -55,10 +55,8 @@ impl DataFlowGraph {
             "need to pass iterable JS values!"
         })?;
 
-        let mut count = 0;
-
         for x in iterator {
-            let mut x = x?;
+            let x = x?;
 
             row_vec.push(DataType::from(x));
         }
@@ -99,10 +97,10 @@ impl DataFlowGraph {
             match op {
                 Operation::Rootor(inner_op) => {
                     console::log_1(&"root".into());
-                    let option = root_id_map.insert(inner_op.root_id, index);
+                    root_id_map.insert(inner_op.root_id, index);
                     console::log_1(&"insertr".into());
                 },
-                Operation::Leafor(inner_op) => {
+                Operation::Leafor(_inner_op) => {
                     console::log_1(&"leaf".into());
                     leaf_id_vec.push(index);
                     console::log_1(&"insertl".into());
@@ -136,13 +134,13 @@ impl DataFlowGraph {
         let root_node_index = *(self.root_id_map.get(&root_string).unwrap());
         let mut root_op = self.data.node_weight(root_node_index).unwrap().borrow_mut();
 
-        let mut row_chng_rust = match Self::process_into_row(&row_chng) {
+        let row_chng_rust = match Self::process_into_row(&row_chng) {
             Ok(row) => row,
-            Err(err) => Row::new(Vec::new()),
+            Err(_err) => Row::new(Vec::new()),
         };  
 
         let change = Change::new(ChangeType::Insertion, vec![row_chng_rust]);
-        let mut change_vec = vec![change];
+        let change_vec = vec![change];
         
         root_op.process_change(change_vec, self, root_node_index, root_node_index);
     }

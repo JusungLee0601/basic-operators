@@ -9,7 +9,6 @@ pub mod operation;
 use crate::units::change::Change;
 use crate::viewsandgraphs::dfg::DataFlowGraph;
 use petgraph::graph::NodeIndex;
-use crate::types::changetype::ChangeType;
 
 use web_sys::console;
 
@@ -20,7 +19,7 @@ pub trait Operator {
 
     /// Takes a set of Changes and propogates the Changes recursively through nodes children
     /// calls apply to generate new Change to send downward
-    fn process_change(&mut self, change: Vec<Change>, dfg: &DataFlowGraph, parent_index: NodeIndex, self_index: NodeIndex) { 
+    fn process_change(&mut self, change: Vec<Change>, dfg: &DataFlowGraph, _parent_index: NodeIndex, self_index: NodeIndex) { 
         console::log_1(&"pc".into()); 
         let next_change = self.apply(change);
         let graph = &(*dfg).data;

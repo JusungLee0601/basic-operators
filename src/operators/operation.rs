@@ -21,6 +21,7 @@ pub enum Operation {
     Aggregator(Aggregation),
     Rootor(Root),
     Leafor(Leaf),
+    InnerJoinor(InnerJoin),
 }
 
 //Operator Trait for Operation Enum
@@ -32,6 +33,7 @@ impl Operator for Operation {
             Operation::Aggregator(op) => op.apply(prev_change),
             Operation::Rootor(op) => op.apply(prev_change),
             Operation::Leafor(op) => op.apply(prev_change),
+            Operation::InnerJoinor(op) => op.apply(prev_change),
         }
     }
 
@@ -42,6 +44,7 @@ impl Operator for Operation {
             Operation::Aggregator(op) => op.process_change(change, dfg, parent_index, self_index),
             Operation::Rootor(op) => op.process_change(change, dfg, parent_index, self_index),
             Operation::Leafor(op) => op.process_change(change, dfg, parent_index, self_index),
+            Operation::InnerJoinor(op) => op.process_change(change, dfg, parent_index, self_index),
         }
     }
 }

@@ -1,5 +1,3 @@
-use serde::{Deserialize, Serialize};
-
 use crate::units::change::Change;
 use crate::viewsandgraphs::dfg::DataFlowGraph;
 use crate::viewsandgraphs::view::View;
@@ -26,7 +24,7 @@ impl Operator for Leaf {
     }
 
     /// Doesn't apply to the rest of the operators as it is the Leaf
-    fn process_change(&mut self, change: Vec<Change>, dfg: &DataFlowGraph, parent_index: NodeIndex, self_index: NodeIndex) { 
+    fn process_change(&mut self, change: Vec<Change>, _dfg: &DataFlowGraph, _parent_index: NodeIndex, _self_index: NodeIndex) { 
         self.apply(change);
     }
 }

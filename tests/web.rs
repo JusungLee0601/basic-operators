@@ -7,6 +7,11 @@ extern crate js_sys;
 use wasm_bindgen_test::*;
 use noria_clientside::viewsandgraphs::dfg::DataFlowGraph;
 use noria_clientside::units::change::Change;
+use petgraph::graph::NodeIndex;
+use noria_clientside::types::datatype::DataType;
+use noria_clientside::units::row::Row;
+use noria_clientside::operators::operation::Operation::Leafor;
+
 wasm_bindgen_test_configure!(run_in_browser);
 
 #[wasm_bindgen_test]
@@ -224,7 +229,19 @@ fn selection_unit() {
     g_unit.change_to_root_json("first".to_owned(), mult_row_ins.to_owned());
     g_unit.change_to_root_json("first".to_owned(), sin_row_del.to_owned());
 
-    assert_eq!(g_unit.leaf_counts(), vec![1, 2]);
+    assert_eq!(g_unit.leaf_counts(), vec![1, 1]);
+
+    // let mut leaf_op = g_unit.data.node_weight(NodeIndex::new(3)).unwrap().borrow_mut();
+    
+    // match &*leaf_op {
+    //     Leafor(leaf) => {
+    //         let lri_row = (*leaf).mat_view.get(DataType::Int(50)).unwrap();
+    //         let test_row = Row::new(vec![DataType::Text("Doomsday".to_string()), DataType::Int(50)]);
+        
+    //         assert_eq!(lri_row, test_row); 
+    //     },
+    //     _ => (),
+    // };  
 }
 
 #[wasm_bindgen_test]
