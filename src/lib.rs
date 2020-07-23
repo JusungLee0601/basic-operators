@@ -710,9 +710,6 @@ fn innerjoin_unit_test() {
 
     let g_unit = DataFlowGraph::new(unit_graph.to_owned());
 
-    console::log_1(&"BUILTTTING".into());
-
-
     assert_eq!(g_unit.node_count(), 4);
     assert_eq!(g_unit.edge_count(), 3);
 
@@ -830,7 +827,7 @@ fn innerjoin_unit_test() {
         ]
     }"##;
 
-    let sin_row_del_right_dummy = r##"{
+    let sin_row_del_right = r##"{
         "typing": "Deletion",
         "batch": [
             {
@@ -842,31 +839,6 @@ fn innerjoin_unit_test() {
                     {
                         "t": "Text",
                         "c": "Article 2"
-                    }
-                ]
-            } 
-        ]
-    }"##;
-
-    let template_one = r##"{
-        "typing": "Deletion",
-        "batch": [
-            {
-                "data": [
-                    {
-                        "t": "Text",
-                        "c": "##; 
-                        
-    let author_id = "\"Publisher 3\"";
-
-    let template_two = r##"
-                    },{
-                        "t": "Text",
-                        "c": "##;
-
-    let story_id = "\"Article 2\"";
-                        
-    let template_three = r##"
                     }
                 ]
             } 
@@ -904,33 +876,7 @@ fn innerjoin_unit_test() {
 }
 
 fn author_story_inserts() -> Vec<String> {
-    let mut author_count = 0;
-    let mut story_count = 0;
-
-    for n in 1..101 {
-        let template_one = r##"{
-            "typing": "Deletion",
-            "batch": [
-                {
-                    "data": [
-                        {
-                            "t": "Int",
-                            "c": "##;                     
-        let author_id = "\"Publisher 3\"";
-        let template_two = r##"
-                        },{
-                            "t": "Text",
-                            "c": "##;
-        let story_id = "\"Article 2\"";                   
-        let template_three = r##"
-                        }
-                    ]
-                } 
-            ]
-        }"##;
-    }
-
-    
+    let mut str_vec = Vec::new();
 
     let template_one = r##"{
         "typing": "Insertion",
@@ -939,16 +885,11 @@ fn author_story_inserts() -> Vec<String> {
                 "data": [
                     {
                         "t": "Int",
-                        "c": "##.to_owned(); 
-                        
-    let author_id: &str = &(counter.to_string());
-
-
+                        "c": "##;                     
     let template_two = r##"
                     },{
-                        "t": "Text",
-                        "c": "## STRING 
-                        
+                        "t": "Int",
+                        "c": "##;            
     let template_three = r##"
                     }
                 ]
@@ -956,25 +897,98 @@ fn author_story_inserts() -> Vec<String> {
         ]
     }"##;
 
-    let mut owned_string: String = r##"{
-        "typing": "Insertion",
+    for n in 1..401 {
+        for _z in 1..6 {
+            let story_id = &n.to_string();
+            let user_id = &story_count.to_string();  
+
+            let change_json = [template_one, &story_id, template_two, &user_id, template_three].concat();
+            str_vec.push(change_json);
+        }
+    }
+
+    str_vec
+}
+
+fn story_voter_inserts() -> Vec<String> {
+    let mut str_vec = Vec::new();
+    let mut story_count = 1;
+
+    let template_one = r##"{
+        "typing": "Deletion",
         "batch": [
             {
                 "data": [
                     {
-                        "t": "Text",
-                        "c": "##.to_owned();
+                        "t": "Int",
+                        "c": "##;  
+    let template_two = r##"
+                },{
+                    "t": "Int",
+                    "c": "##;
+    let template_three = r##"
+                    }
+                ]
+            } 
+        ]
+    }"##;
 
-    let author_id: &str = &(counter.to_string());
-    let story_id: 
 
-    owned_string.push_str(borrowed_string);
-    println!("{}", owned_string);
+    for n in 1..2001 {
+        for z in 1..6 {         
+            let author_id = &n.to_string();
+            let user_id = z.to_string();                   
+
+            let change_json = [template_one, &author_id, template_two, &story_id, template_three].concat();
+            str_vec.push(change_json);
+            story_count = story_count + 1;
+        }
+    }
+
+    str_vec
+}
+
+fn user_email_inserts() -> Vec<String> {
+    let mut str_vec = Vec::new();
+    let mut story_count = 1;
+
+    let template_one = r##"{
+        "typing": "Deletion",
+        "batch": [
+            {
+                "data": [
+                    {
+                        "t": "Int",
+                        "c": "##;  
+    let template_two = r##"
+                },{
+                    "t": "Text",
+                    "c": "##;
+    let template_three = r##"
+                    }
+                ]
+            } 
+        ]
+    }"##;
+
+
+    for n in 1..4001 {
+        for z in 1..6 {         
+            let user_id = &n.to_string();
+            let email = z.to_string();                   
+
+            let change_json = [template_one, &author_id, template_two, &story_id, template_three].concat();
+            str_vec.push(change_json);
+            story_count = story_count + 1;
+        }
+    }
+
+    str_vec
 }
 
 #[wasm_bindgen_test]
 fn write_throughput_votecounts() {
-    let graph = r##"{
+    let graph_json = r##"{
         "operators": [
                 {
                     "t": "Rootor",
@@ -1075,6 +1089,17 @@ fn write_throughput_votecounts() {
             "childindex": 8
         }]
     }"##;
+
+    let graph = DataFlowGraph::new(graph_json.to_owned());
+
+    assert_eq!(g_unit.node_count(), 9);
+    assert_eq!(g_unit.edge_count(), 8);
+
+    let author_story_inserts = author_story_inserts();
+    let story_voter_inserts = story_voter_inserts();
+    let user_email_inserts = user_email_inserts();
+
+    g_unit.change_to_root_json("first".to_owned(), sin_row_ins_left.to_owned());
 }
 
 
