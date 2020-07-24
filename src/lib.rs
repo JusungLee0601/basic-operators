@@ -4,6 +4,9 @@ extern crate js_sys;
 #[macro_use]
 extern crate serde_derive;
 
+extern crate wasm_timer;
+use wasm_timer::Instant;
+
 extern crate wasm_bindgen_test;
 use wasm_bindgen_test::*;
 
@@ -31,7 +34,6 @@ use crate::units::row::Row;
 use crate::operators::operation::Operation::Leafor;
 use web_sys::console;
 
-use instant::Instant;
 use std::time::Duration;
 
 wasm_bindgen_test::wasm_bindgen_test_configure!(run_in_browser);
@@ -1184,13 +1186,7 @@ fn write_throughput_votecounts() {
     let elapsed = now.elapsed();
 
     console::log_1(&"After".into());
-    println!("Elapsed: {:?}", elapsed);
+    console::log_1(&format!("Elapsed: {:?}", elapsed).into());
 
     //assert_eq!(graph.leaf_counts(), vec![2000]);
 }
-
-
-
-
-
-
