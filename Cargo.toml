@@ -18,6 +18,7 @@ serde_derive = "^1.0.59"
 serde_json = "1.0"
 wasm-bindgen-test = "0.3.13"
 wasm-timer = "0.2.4"
+rand = "0.7.3"
 
 [dependencies.wasm-bindgen]
 version = "^0.2"

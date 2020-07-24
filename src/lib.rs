@@ -37,7 +37,7 @@ wasm_bindgen_test::wasm_bindgen_test_configure!(run_in_browser);
 
 //IN CRATE TESTING
 
-#[wasm_bindgen_test]
+//#[wasm_bindgen_test]
 fn selection_unit_test() {
     let unit_graph = r##"{
     "operators": [
@@ -910,42 +910,42 @@ fn innerjoin_unit_test() {
         str_vec
     }
 
-    // pub fn author_story_deletes() -> Vec<String> {
-    //     let mut str_vec = Vec::new();
-    //     let mut story_count = 1;
+    pub fn author_story_deletes() -> Vec<String> {
+        let mut str_vec = Vec::new();
+        let mut story_count = 2001;
 
-    //     let template_one = r##"{
-    //         "typing": "Deletion",
-    //         "batch": [
-    //             {
-    //                 "data": [
-    //                     {
-    //                         "t": "Int",
-    //                         "c": "##;                     
-    //     let template_two = r##"
-    //                     },{
-    //                         "t": "Int",
-    //                         "c": "##;            
-    //     let template_three = r##"
-    //                     }
-    //                 ]
-    //             } 
-    //         ]
-    //     }"##;
+        let template_one = r##"{
+            "typing": "Deletion",
+            "batch": [
+                {
+                    "data": [
+                        {
+                            "t": "Int",
+                            "c": "##;                     
+        let template_two = r##"
+                        },{
+                            "t": "Int",
+                            "c": "##;            
+        let template_three = r##"
+                        }
+                    ]
+                } 
+            ]
+        }"##;
 
-    //     for n in 1..201 {
-    //         for z in 1..11 {
-    //             let story_id = &story_count.to_string();
-    //             let user_id = &n.to_string();  
+        for n in 201..401 {
+            for z in 1..11 {
+                let story_id = &story_count.to_string();
+                let user_id = &n.to_string();  
 
-    //             let change_json = [template_one, &user_id, template_two, &story_id, template_three].concat();
-    //             str_vec.push(change_json);
-    //             story_count = story_count + 1;
-    //         }
-    //     }
+                let change_json = [template_one, &user_id, template_two, &story_id, template_three].concat();
+                str_vec.push(change_json);
+                story_count = story_count + 1;
+            }
+        }
 
-    //     str_vec
-    // }
+        str_vec
+    }
 
     pub fn story_voter_inserts() -> Vec<String> {
         let mut str_vec = Vec::new();
@@ -1062,6 +1062,196 @@ fn innerjoin_unit_test() {
 
         str_vec
     }
+
+    pub fn read_keys() -> Vec<String> {
+        let mut keys = Vec::new();
+
+        let template_one = r##"{
+            "t": "Int",
+            "c": "##;  
+        let template_two = r##"
+        }"##;
+
+
+        for n in 1.. 501 {
+            for k in 1..2001 {  
+                let insert = k.to_string();
+        
+                let key = [template_one, &insert, template_two].concat();
+                keys.push(key);
+            }
+        }
+
+        keys
+    }
+
+    pub fn read_keys_latency() -> Vec<String> {
+        let mut keys = Vec::new();
+
+        let template_one = r##"{
+            "t": "Int",
+            "c": "##;  
+        let template_two = r##"
+        }"##;
+
+
+        for n in 1.. 11 {
+            for k in 1..2001 {  
+                let insert = k.to_string();
+        
+                let key = [template_one, &insert, template_two].concat();
+                keys.push(key);
+            }
+        }
+
+        keys
+    }
+
+    pub fn write_sv_latency() -> Vec<String> {
+        let mut str_vec = Vec::new();
+
+        let template_one = r##"{
+            "typing": "Insertion",
+            "batch": [
+                {
+                    "data": [
+                        {
+                            "t": "Int",
+                            "c": "##;  
+        let template_two = r##"
+                    },{
+                        "t": "Int",
+                        "c": "##;
+        let template_three = r##"
+                        }
+                    ]
+                } 
+            ]
+        }"##;
+
+
+        for n in 1..2001 {
+            for z in 6..9 {         
+                let author_id = &n.to_string();
+                let user_id = z.to_string();                   
+
+                let change_json = [template_one, &author_id, template_two, &user_id, template_three].concat();
+                str_vec.push(change_json);
+            }
+        }
+
+        
+        let template_one_d = r##"{
+            "typing": "Deletion",
+            "batch": [
+                {
+                    "data": [
+                        {
+                            "t": "Int",
+                            "c": "##;  
+        let template_two_d = r##"
+                    },{
+                        "t": "Int",
+                        "c": "##;
+        let template_three_d = r##"
+                        }
+                    ]
+                } 
+            ]
+        }"##;
+
+
+        for n in 1..2001 {     
+            let author_id_d = &n.to_string();
+            let user_id_d = "6";                   
+
+            let change_json = [template_one_d, &author_id_d, template_two_d, &user_id_d, template_three_d].concat();
+            str_vec.push(change_json);
+        }
+
+        for n in 1..2001 {     
+            let author_id_d = &n.to_string();
+            let user_id_d = "7";                   
+
+            let change_json = [template_one_d, &author_id_d, template_two, &user_id_d, template_three_d].concat();
+            str_vec.push(change_json);
+        }
+
+        str_vec
+    }
+
+    pub fn write_as_latency() -> Vec<String> {
+        let mut str_vec = Vec::new();
+        let mut story_count = 4001;
+
+        let template_one = r##"{
+            "typing": "Insertion",
+            "batch": [
+                {
+                    "data": [
+                        {
+                            "t": "Int",
+                            "c": "##;                     
+        let template_two = r##"
+                        },{
+                            "t": "Int",
+                            "c": "##;            
+        let template_three = r##"
+                        }
+                    ]
+                } 
+            ]
+        }"##;
+
+        for n in 1..501 {
+            for _z in 1..11 {
+                let story_id = &story_count.to_string();
+                let user_id = &n.to_string();  
+
+                let change_json = [template_one, &user_id, template_two, &story_id, template_three].concat();
+                str_vec.push(change_json);
+                story_count = story_count + 1;
+            }
+        }
+
+        let mut str_vec = Vec::new();
+        let mut story_count = 4001;
+
+        let template_one_d = r##"{
+            "typing": "Deletion",
+            "batch": [
+                {
+                    "data": [
+                        {
+                            "t": "Int",
+                            "c": "##;                     
+        let template_two_d = r##"
+                        },{
+                            "t": "Int",
+                            "c": "##;            
+        let template_three_d = r##"
+                        }
+                    ]
+                } 
+            ]
+        }"##;
+
+        for n in 1..501 {
+            for _z in 1..11 {
+                let story_id_d = &story_count.to_string();
+                let user_id_d = &n.to_string();  
+
+                let change_json = [template_one_d, &user_id_d, template_two_d, &story_id_d, template_three_d].concat();
+                str_vec.push(change_json);
+                story_count = story_count + 1;
+            }
+        }
+
+
+
+        str_vec
+    }
+
 //}
 
 #[wasm_bindgen_test]
@@ -1234,40 +1424,63 @@ fn write_throughput_votecounts() {
 
     let author_story_inserts = author_story_inserts();
     let story_voter_inserts = story_voter_inserts();
-    //let author_story_deletes = author_story_deletes();
-    //let story_voter_deletes = story_voter_deletes();
+    let author_story_deletes = author_story_deletes();
+    let story_voter_deletes = story_voter_deletes();
+    let keys = read_keys();
+    let keys_latency = read_keys_latency();
+    let as_latency = write_as_latency();
+    let sv_latency = write_sv_latency();
 
     let now = Instant::now();
 
-        for change in author_story_inserts.iter() {
-            graph.change_to_root_json("AuthorStory".to_owned(), change.to_string());
-        }
+    for change in author_story_inserts.iter() {
+        graph.change_to_root_json("AuthorStory".to_owned(), change.to_string());
+    }
 
-        for change in story_voter_inserts.iter() {
-            graph.change_to_root_json("StoryVoter".to_owned(), change.to_string());
-        }
+    for change in story_voter_inserts.iter() {
+        graph.change_to_root_json("StoryVoter".to_owned(), change.to_string());
+    }
 
-        // for change in author_story_deletes.iter() {
-        //     graph.change_to_root_json("AuthorStory".to_owned(), change.to_string());
-        // }
+    for change in author_story_deletes.iter() {
+        graph.change_to_root_json("AuthorStory".to_owned(), change.to_string());
+    }
 
-        // for change in story_voter_deletes.iter() {
-        //     graph.change_to_root_json("StoryVoter".to_owned(), change.to_string());
-        // }
+    for change in story_voter_deletes.iter() {
+        graph.change_to_root_json("StoryVoter".to_owned(), change.to_string());
+    }
 
     let elapsed = now.elapsed();
 
     console::log_1(&"After".into());
     console::log_1(&format!("Elapsed: {:?}", elapsed).into());
 
-    assert_eq!(graph.leaf_counts(), vec![2000]);
+    let now2 = Instant::now();
 
-
-    let now = Instant::now();
-
-    for n in 1..100001 {     
-        graph.read(4, "1".to_owned());
+    for change in keys.iter() {
+        graph.read(4, change.to_string());
     }
 
-    let elapsed = now.elapsed();
+    let elapsed2 = now.elapsed();
+
+    console::log_1(&format!("Elapsed2: {:?}", elapsed2).into());
+
+    let now3 = Instant::now();
+
+    for change in keys.iter() {
+        graph.read(4, change.to_string());
+    }
+
+    for change in as_latency.iter() {
+        graph.change_to_root_json("AuthorStory".to_owned(), change.to_string());
+    }
+
+    for change in sv_latency.iter() {
+        graph.change_to_root_json("StoryVoter".to_owned(), change.to_string());
+    }
+
+    let elapsed3 = now.elapsed();
+
+    console::log_1(&format!("Elapsed3: {:?}", elapsed3).into());
+
+    assert_eq!(graph.leaf_counts(), vec![1000]);
 }
