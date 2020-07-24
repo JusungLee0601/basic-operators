@@ -10,8 +10,6 @@ use crate::units::change::Change;
 use crate::viewsandgraphs::dfg::DataFlowGraph;
 use petgraph::graph::NodeIndex;
 
-use web_sys::console;
-
 //Operator trait
 pub trait Operator {
     /// Returns Vec of Changes after operator conditions applied

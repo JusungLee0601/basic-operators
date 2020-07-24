@@ -147,6 +147,24 @@ impl DataFlowGraph {
         root_op.process_change(change_vec, self, NodeIndex::new(1), root_node_index.clone());
     }
 
+    pub fn read(&self, leaf_index: usize, key_string: String) -> String {
+        let mut leaf_op = self.data.node_weight(NodeIndex::new(leaf_index)).unwrap().borrow_mut();
+        let key: DataType = serde_json::from_str(&key_string).unwrap();
+
+        match &*leaf_op {
+            Leafor(leaf) => {
+                let row = (*leaf).mat_view.table.get(&key).unwrap();
+                let j = serde_json::to_string(&row);
+                
+                match j {
+                    Ok(string) => string,
+                    Err(_err) => "error".to_owned(),
+                }
+            }
+            _ => "error".to_owned(),
+        }
+    }
+
     pub fn render(&self) -> String {
         self.to_string()
     }
