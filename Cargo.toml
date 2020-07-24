@@ -9,7 +9,6 @@ crate-type = ["cdylib", "rlib"]
 
 [features]
 stdweb = [ "instant/stdweb" ]
-#wasm-bindgen-instant = [ "instant/wasm-bindgen" ]
 
 [dependencies]
 js-sys = "0.3.40"

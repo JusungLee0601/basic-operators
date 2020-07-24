@@ -31,6 +31,9 @@ use crate::units::row::Row;
 use crate::operators::operation::Operation::Leafor;
 use web_sys::console;
 
+use instant::Instant;
+use std::time::Duration;
+
 wasm_bindgen_test::wasm_bindgen_test_configure!(run_in_browser);
 
 //IN CRATE TESTING
@@ -868,116 +871,120 @@ fn innerjoin_unit_test() {
     };  
 }
 
-fn author_story_inserts() -> Vec<String> {
-    let mut str_vec = Vec::new();
-    let mut story_count = 1;
+//pub struct TestGenerator {}
 
-    let template_one = r##"{
-        "typing": "Insertion",
-        "batch": [
-            {
-                "data": [
-                    {
-                        "t": "Int",
-                        "c": "##;                     
-    let template_two = r##"
+//impl TestGenerator {
+    pub fn author_story_inserts() -> Vec<String> {
+        let mut str_vec = Vec::new();
+        let mut story_count = 1;
+
+        let template_one = r##"{
+            "typing": "Insertion",
+            "batch": [
+                {
+                    "data": [
+                        {
+                            "t": "Int",
+                            "c": "##;                     
+        let template_two = r##"
+                        },{
+                            "t": "Int",
+                            "c": "##;            
+        let template_three = r##"
+                        }
+                    ]
+                } 
+            ]
+        }"##;
+
+        for n in 1..401 {
+            for z in 1..6 {
+                let story_id = &story_count.to_string();
+                let user_id = &n.to_string();  
+
+                let change_json = [template_one, &user_id, template_two, &story_id, template_three].concat();
+                str_vec.push(change_json);
+                story_count = story_count + 1;
+            }
+        }
+
+        str_vec
+    }
+
+    pub fn story_voter_inserts() -> Vec<String> {
+        let mut str_vec = Vec::new();
+
+        let template_one = r##"{
+            "typing": "Insertion",
+            "batch": [
+                {
+                    "data": [
+                        {
+                            "t": "Int",
+                            "c": "##;  
+        let template_two = r##"
                     },{
                         "t": "Int",
-                        "c": "##;            
-    let template_three = r##"
-                    }
-                ]
-            } 
-        ]
-    }"##;
+                        "c": "##;
+        let template_three = r##"
+                        }
+                    ]
+                } 
+            ]
+        }"##;
 
-    for n in 1..401 {
-        for z in 1..6 {
-            let story_id = &story_count.to_string();
-            let user_id = &n.to_string();  
 
-            let change_json = [template_one, &user_id, template_two, &story_id, template_three].concat();
-            str_vec.push(change_json);
-            story_count = story_count + 1;
+        for n in 1..2001 {
+            for z in 1..6 {         
+                let author_id = &n.to_string();
+                let user_id = z.to_string();                   
+
+                let change_json = [template_one, &author_id, template_two, &user_id, template_three].concat();
+                str_vec.push(change_json);
+            }
         }
+
+        str_vec
     }
 
-    str_vec
-}
+    pub fn user_email_inserts() -> Vec<String> {
+        let mut str_vec = Vec::new();
+        let mut story_count = 1;
 
-fn story_voter_inserts() -> Vec<String> {
-    let mut str_vec = Vec::new();
-
-    let template_one = r##"{
-        "typing": "Insertion",
-        "batch": [
-            {
-                "data": [
-                    {
-                        "t": "Int",
-                        "c": "##;  
-    let template_two = r##"
-                },{
-                    "t": "Int",
-                    "c": "##;
-    let template_three = r##"
-                    }
-                ]
-            } 
-        ]
-    }"##;
+        let template_one = r##"{
+            "typing": "Insertion",
+            "batch": [
+                {
+                    "data": [
+                        {
+                            "t": "Int",
+                            "c": "##;  
+        let template_two = r##"
+                    },{
+                        "t": "Text",
+                        "c": "##;
+        let template_three = r##"
+                        }
+                    ]
+                } 
+            ]
+        }"##;
 
 
-    for n in 1..2001 {
-        for z in 1..6 {         
-            let author_id = &n.to_string();
-            let user_id = z.to_string();                   
+        for n in 1..4001 {
+            for z in 1..6 {         
+                let user_id = &n.to_string();
+                let email = z.to_string();                   
 
-            let change_json = [template_one, &author_id, template_two, &user_id, template_three].concat();
-            str_vec.push(change_json);
+                let change_json = [template_one, &user_id, template_two, &email, template_three].concat();
+                str_vec.push(change_json);
+                story_count = story_count + 1;
+            }
         }
+
+        str_vec
     }
-
-    str_vec
-}
-
-fn user_email_inserts() -> Vec<String> {
-    let mut str_vec = Vec::new();
-    let mut story_count = 1;
-
-    let template_one = r##"{
-        "typing": "Insertion",
-        "batch": [
-            {
-                "data": [
-                    {
-                        "t": "Int",
-                        "c": "##;  
-    let template_two = r##"
-                },{
-                    "t": "Text",
-                    "c": "##;
-    let template_three = r##"
-                    }
-                ]
-            } 
-        ]
-    }"##;
-
-
-    for n in 1..4001 {
-        for z in 1..6 {         
-            let user_id = &n.to_string();
-            let email = z.to_string();                   
-
-            let change_json = [template_one, &user_id, template_two, &email, template_three].concat();
-            str_vec.push(change_json);
-            story_count = story_count + 1;
-        }
-    }
-
-    str_vec
-}
+//}
 
 #[wasm_bindgen_test]
 fn write_throughput_votecounts() {
@@ -1150,20 +1157,32 @@ fn write_throughput_votecounts() {
     let author_story_inserts = author_story_inserts();
     let story_voter_inserts = story_voter_inserts();
 
-    let now_instant = instant::Instant::new();
+    console::log_1(&"Before".into());
 
-    for change in author_story_inserts.iter() {
-        graph.change_to_root_json("AuthorStory".to_owned(), change.to_string());
+    let now = Instant::now();
+
+    console::log_1(&"During1".into());
+
+    {
+        for change in author_story_inserts.iter() {
+            graph.change_to_root_json("AuthorStory".to_owned(), change.to_string());
+        }
+
+        console::log_1(&"During2".into());
+
+        for change in story_voter_inserts.iter() {
+            graph.change_to_root_json("StoryVoter".to_owned(), change.to_string());
+        }
     }
 
-    for change in story_voter_inserts.iter() {
-        graph.change_to_root_json("StoryVoter".to_owned(), change.to_string());
-    }
+    console::log_1(&"During 3".into());
 
-    let now_milliseconds = instant::now(); // In milliseconds.
-    println!("{}", now_milliseconds);
+    let elapsed = now.elapsed();
 
-    assert_eq!(graph.leaf_counts(), vec![2000]);
+    console::log_1(&"After".into());
+    println!("Elapsed: {:?}", elapsed);
+
+    //assert_eq!(graph.leaf_counts(), vec![2000]);
 }
 
 
