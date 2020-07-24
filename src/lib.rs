@@ -986,6 +986,12 @@ fn innerjoin_unit_test() {
     }
 //}
 
+//#[wasm_bindgen_test]
+fn test_instant_now() {
+    let now = Instant::now();
+    assert!(now.elapsed().as_nanos() > 0);
+}
+
 #[wasm_bindgen_test]
 fn write_throughput_votecounts() {
     let full_graph = r##"{
@@ -1163,7 +1169,6 @@ fn write_throughput_votecounts() {
 
     console::log_1(&"During1".into());
 
-    {
         for change in author_story_inserts.iter() {
             graph.change_to_root_json("AuthorStory".to_owned(), change.to_string());
         }
@@ -1173,7 +1178,6 @@ fn write_throughput_votecounts() {
         for change in story_voter_inserts.iter() {
             graph.change_to_root_json("StoryVoter".to_owned(), change.to_string());
         }
-    }
 
     console::log_1(&"During 3".into());
 
