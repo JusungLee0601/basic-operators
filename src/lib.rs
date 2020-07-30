@@ -10,7 +10,12 @@ use wasm_timer::Instant;
 extern crate wasm_bindgen_test;
 use wasm_bindgen_test::*;
 
-// use wasm_bindgen::prelude::*;
+extern crate log;
+
+use std::net::TcpListener;
+use std::thread::spawn;  
+
+use wasm_bindgen::prelude::*;
 // use std::fmt;
 // use std::collections::HashMap;
 // use petgraph::graph::Graph;
@@ -32,10 +37,89 @@ use crate::types::datatype::DataType;
 use crate::units::row::Row;
 use crate::operators::operation::Operation::Leafor;
 use web_sys::console;
+use wasm_bindgen::JsCast;
+use web_sys::{ErrorEvent, MessageEvent, WebSocket};
 
 wasm_bindgen_test::wasm_bindgen_test_configure!(run_in_browser);
 
-//IN CRATE TESTING
+//WEBSOCKET CONNECTION ----------------------------------------------------------------------------
+
+
+//#[wasm_bindgen(start)]
+// pub fn ws_connect() -> Result<(), JsValue> {
+//     // Connect to an echo server
+//     let ws = WebSocket::new("ws://localhost:3012/socket")?;
+//     // For small binary messages, like CBOR, Arraybuffer is more efficient than Blob handling
+//     ws.set_binary_type(web_sys::BinaryType::Arraybuffer);
+//     // create callback
+//     let cloned_ws = ws.clone();
+//     let onmessage_callback = Closure::wrap(Box::new(move |e: MessageEvent| {
+//         // Handle difference Text/Binary,...
+//         if let Ok(abuf) = e.data().dyn_into::<js_sys::ArrayBuffer>() {
+//             console_log!("message event, received arraybuffer: {:?}", abuf);
+//             let array = js_sys::Uint8Array::new(&abuf);
+//             let len = array.byte_length() as usize;
+//             console_log!("Arraybuffer received {}bytes: {:?}", len, array.to_vec());
+//             // here you can for example use Serde Deserialize decode the message
+//             // for demo purposes we switch back to Blob-type and send off another binary message
+//             cloned_ws.set_binary_type(web_sys::BinaryType::Blob);
+//             match cloned_ws.send_with_u8_array(&vec![5, 6, 7, 8]) {
+//                 Ok(_) => console_log!("binary message successfully sent"),
+//                 Err(err) => console_log!("error sending message: {:?}", err),
+//             }
+//         } else if let Ok(blob) = e.data().dyn_into::<web_sys::Blob>() {
+//             console_log!("message event, received blob: {:?}", blob);
+//             // better alternative to juggling with FileReader is to use https://crates.io/crates/gloo-file
+//             let fr = web_sys::FileReader::new().unwrap();
+//             let fr_c = fr.clone();
+//             // create onLoadEnd callback
+//             let onloadend_cb = Closure::wrap(Box::new(move |_e: web_sys::ProgressEvent| {
+//                 let array = js_sys::Uint8Array::new(&fr_c.result().unwrap());
+//                 let len = array.byte_length() as usize;
+//                 console_log!("Blob received {}bytes: {:?}", len, array.to_vec());
+//                 // here you can for example use the received image/png data
+//             })
+//                 as Box<dyn FnMut(web_sys::ProgressEvent)>);
+//             fr.set_onloadend(Some(onloadend_cb.as_ref().unchecked_ref()));
+//             fr.read_as_array_buffer(&blob).expect("blob not readable");
+//             onloadend_cb.forget();
+//         } else if let Ok(txt) = e.data().dyn_into::<js_sys::JsString>() {
+//             console_log!("message event, received Text: {:?}", txt);
+//         } else {
+//             console_log!("message event, received Unknown: {:?}", e.data());
+//         }
+//     }) as Box<dyn FnMut(MessageEvent)>);
+//     // set message event handler on WebSocket
+//     ws.set_onmessage(Some(onmessage_callback.as_ref().unchecked_ref()));
+//     // forget the callback to keep it alive
+//     onmessage_callback.forget();
+
+//     let onerror_callback = Closure::wrap(Box::new(move |e: ErrorEvent| {
+//         console_log!("error event: {:?}", e);
+//     }) as Box<dyn FnMut(ErrorEvent)>);
+//     ws.set_onerror(Some(onerror_callback.as_ref().unchecked_ref()));
+//     onerror_callback.forget();
+
+//     let cloned_ws = ws.clone();
+//     let onopen_callback = Closure::wrap(Box::new(move |_| {
+//         console_log!("socket opened");
+//         match cloned_ws.send_with_str("ping") {
+//             Ok(_) => console_log!("message successfully sent"),
+//             Err(err) => console_log!("error sending message: {:?}", err),
+//         }
+//         // send off binary message
+//         match cloned_ws.send_with_u8_array(&vec![0, 1, 2, 3]) {
+//             Ok(_) => console_log!("binary message successfully sent"),
+//             Err(err) => console_log!("error sending message: {:?}", err),
+//         }
+//     }) as Box<dyn FnMut(JsValue)>);
+//     ws.set_onopen(Some(onopen_callback.as_ref().unchecked_ref()));
+//     onopen_callback.forget();
+
+//     Ok(())
+// }
+
+//IN CRATE TESTING --------------------------------------------------------------------------------
 
 //#[wasm_bindgen_test]
 fn selection_unit_test() {
@@ -934,7 +1018,7 @@ fn innerjoin_unit_test() {
         }"##;
 
         for n in 201..401 {
-            for z in 1..11 {
+            for _z in 1..11 {
                 let story_id = &story_count.to_string();
                 let user_id = &n.to_string();  
 
@@ -972,10 +1056,10 @@ fn innerjoin_unit_test() {
 
         for n in 1..2001 {
             for z in 1..6 {         
-                let author_id = &n.to_string();
+                let story_id = &n.to_string();
                 let user_id = z.to_string();                   
 
-                let change_json = [template_one, &author_id, template_two, &user_id, template_three].concat();
+                let change_json = [template_one, &story_id, template_two, &user_id, template_three].concat();
                 str_vec.push(change_json);
             }
         }
@@ -1254,113 +1338,8 @@ fn innerjoin_unit_test() {
 
 //}
 
-#[wasm_bindgen_test]
+//#[wasm_bindgen_test]
 fn write_throughput_votecounts() {
-    let full_graph = r##"{
-        "operators": [
-                {
-                    "t": "Rootor",
-                    "c": {
-                        "root_id": "AuthorStory"
-                    }
-                },
-                {
-                    "t": "Rootor",
-                    "c": {
-                        "root_id": "StoryVoter"
-                    }
-                },
-                {
-                    "t": "Rootor",
-                    "c": {
-                        "root_id": "UserEmail"
-                    }
-                },
-                {
-                    "t": "Aggregator",
-                    "c": {
-                        "group_by_col": [0]
-                    }
-                },
-                {
-                    "t": "InnerJoinor",
-                    "c": {
-                        "parent_ids": [0, 1],
-                        "join_cols": [1, 0]
-                    }
-                },
-                {
-                    "t": "Aggregator",
-                    "c": {
-                        "group_by_col": [0]
-                    }
-                },
-                {
-                    "t": "InnerJoinor",
-                    "c": {
-                        "parent_ids": [2, 5],
-                        "join_cols": [0, 0]
-                    }
-                },
-                {
-                    "t": "Leafor",
-                    "c": {
-                        "mat_view": {
-                            "name": "Users and VoteCounts",
-                            "column_names": ["AuthorUserID", "StoryID", "StoryVoteCount"],
-                            "schema": ["Int", "Int", "Int"],
-                            "key_index": 1
-                        }
-                    }
-                },
-                {
-                    "t": "Leafor",
-                    "c": {
-                        "mat_view": {
-                            "name": "Users and Emails",
-                            "column_names": ["Email", "AuthorUserID", "StoriesWritten"],
-                            "schema": ["Text", "Int", "Int"],
-                            "key_index": 1
-                        }
-                    }
-                }
-            ],
-        "edges": [{
-            "parentindex": 0,
-            "childindex": 4
-        }, {
-            "parentindex": 1,
-            "childindex": 3
-        },
-        {
-            "parentindex": 3,
-            "childindex": 4
-        },
-        {
-            "parentindex": 4,
-            "childindex": 7
-        },
-        {
-            "parentindex": 4,
-            "childindex": 5
-        },
-        {
-            "parentindex": 2,
-            "childindex": 6
-        },
-        {
-            "parentindex": 5,
-            "childindex": 6
-        },
-        {
-            "parentindex": 6,
-            "childindex": 8
-        }]
-    }"##;
-    // let graph = DataFlowGraph::new(graph_json.to_owned());
-    // assert_eq!(g_unit.node_count(), 9);
-    // assert_eq!(g_unit.edge_count(), 8);
-
     let graph_json = r##"{
         "operators": [
                 {
@@ -1426,10 +1405,6 @@ fn write_throughput_votecounts() {
     let story_voter_inserts = story_voter_inserts();
     let author_story_deletes = author_story_deletes();
     let story_voter_deletes = story_voter_deletes();
-    let keys = read_keys();
-    let keys_latency = read_keys_latency();
-    let as_latency = write_as_latency();
-    let sv_latency = write_sv_latency();
 
     let now = Instant::now();
 
@@ -1451,8 +1426,85 @@ fn write_throughput_votecounts() {
 
     let elapsed = now.elapsed();
 
-    console::log_1(&"After".into());
     console::log_1(&format!("Elapsed: {:?}", elapsed).into());
+
+    assert_eq!(graph.node_count(), 4);
+}
+
+//#[wasm_bindgen_test]
+fn read_throughput_votecounts() {
+    let graph_json = r##"{
+        "operators": [
+                {
+                    "t": "Rootor",
+                    "c": {
+                        "root_id": "AuthorStory"
+                    }
+                },
+                {
+                    "t": "Rootor",
+                    "c": {
+                        "root_id": "StoryVoter"
+                    }
+                },
+                {
+                    "t": "Aggregator",
+                    "c": {
+                        "group_by_col": [0]
+                    }
+                },
+                {
+                    "t": "InnerJoinor",
+                    "c": {
+                        "parent_ids": [0, 1],
+                        "join_cols": [1, 0]
+                    }
+                },
+                {
+                    "t": "Leafor",
+                    "c": {
+                        "mat_view": {
+                            "name": "Users and VoteCounts",
+                            "column_names": ["AuthorUserID", "StoryID", "StoryVoteCount"],
+                            "schema": ["Int", "Int", "Int"],
+                            "key_index": 1
+                        }
+                    }
+                }
+            ],
+        "edges": [{
+            "parentindex": 0,
+            "childindex": 3
+        }, {
+            "parentindex": 1,
+            "childindex": 2
+        },
+        {
+            "parentindex": 2,
+            "childindex": 3
+        },
+        {
+            "parentindex": 3,
+            "childindex": 4
+        }]
+    }"##;
+
+    let graph = DataFlowGraph::new(graph_json.to_owned());
+
+    assert_eq!(graph.node_count(), 5);
+    assert_eq!(graph.edge_count(), 4);
+
+    let author_story_inserts = author_story_inserts();
+    let story_voter_inserts = story_voter_inserts();
+    let keys = read_keys();
+
+    for change in author_story_inserts.iter() {
+        graph.change_to_root_json("AuthorStory".to_owned(), change.to_string());
+    }
+
+    for change in story_voter_inserts.iter() {
+        graph.change_to_root_json("StoryVoter".to_owned(), change.to_string());
+    }
 
     let now2 = Instant::now();
 
@@ -1460,13 +1512,93 @@ fn write_throughput_votecounts() {
         graph.read(4, change.to_string());
     }
 
-    let elapsed2 = now.elapsed();
+    let elapsed2 = now2.elapsed();
 
     console::log_1(&format!("Elapsed2: {:?}", elapsed2).into());
 
+    assert_eq!(graph.node_count(), 4);
+}
+
+//#[wasm_bindgen_test]
+fn latency_test() {
+    let graph_json = r##"{
+        "operators": [
+                {
+                    "t": "Rootor",
+                    "c": {
+                        "root_id": "AuthorStory"
+                    }
+                },
+                {
+                    "t": "Rootor",
+                    "c": {
+                        "root_id": "StoryVoter"
+                    }
+                },
+                {
+                    "t": "Aggregator",
+                    "c": {
+                        "group_by_col": [0]
+                    }
+                },
+                {
+                    "t": "InnerJoinor",
+                    "c": {
+                        "parent_ids": [0, 1],
+                        "join_cols": [1, 0]
+                    }
+                },
+                {
+                    "t": "Leafor",
+                    "c": {
+                        "mat_view": {
+                            "name": "Users and VoteCounts",
+                            "column_names": ["AuthorUserID", "StoryID", "StoryVoteCount"],
+                            "schema": ["Int", "Int", "Int"],
+                            "key_index": 1
+                        }
+                    }
+                }
+            ],
+        "edges": [{
+            "parentindex": 0,
+            "childindex": 3
+        }, {
+            "parentindex": 1,
+            "childindex": 2
+        },
+        {
+            "parentindex": 2,
+            "childindex": 3
+        },
+        {
+            "parentindex": 3,
+            "childindex": 4
+        }]
+    }"##;
+
+    let graph = DataFlowGraph::new(graph_json.to_owned());
+
+    assert_eq!(graph.node_count(), 5);
+    assert_eq!(graph.edge_count(), 4);
+
+    let author_story_inserts = author_story_inserts();
+    let story_voter_inserts = story_voter_inserts();
+    let keys_latency = read_keys_latency();
+    let as_latency = write_as_latency();
+    let sv_latency = write_sv_latency();
+
+    for change in author_story_inserts.iter() {
+        graph.change_to_root_json("AuthorStory".to_owned(), change.to_string());
+    }
+
+    for change in story_voter_inserts.iter() {
+        graph.change_to_root_json("StoryVoter".to_owned(), change.to_string());
+    }
+
     let now3 = Instant::now();
 
-    for change in keys.iter() {
+    for change in keys_latency.iter() {
         graph.read(4, change.to_string());
     }
 
@@ -1478,9 +1610,9 @@ fn write_throughput_votecounts() {
         graph.change_to_root_json("StoryVoter".to_owned(), change.to_string());
     }
 
-    let elapsed3 = now.elapsed();
+    let elapsed3 = now3.elapsed();
 
     console::log_1(&format!("Elapsed3: {:?}", elapsed3).into());
 
-    assert_eq!(graph.leaf_counts(), vec![1000]);
+    assert_eq!(graph.node_count(), 4);
 }

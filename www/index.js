@@ -1,84 +1,35 @@
 import { View, Row, SchemaType, DataType, DataFlowGraph, Operation} from "noria-clientside";
 
-// var schema = [SchemaType.Text, SchemaType.Int];
-// var columns = ["Article Name", "Count"];
-// const parent_view = View.newJS("Dummy", 0, columns, schema);
+let socket = new WebSocket("ws://localhost:3012/socket");
 
-var dummygraph = {
-    "operators": [
-        {
-            "t": "Rootor",
-            "c": {
-                "root_id": "first"
-            }
-        },
-        {
-            "t": "Selector",
-            "c": {
-                "col_ind": 1,
-                "condition": {
-                    "t": "Int",
-                    "c": 50
-                } 
-            }
-        },
-        {
-            "t": "Projector",
-            "c": {
-                "columns": [0]
-            }
-        },
-        {
-            "t": "Aggregator",
-            "c": {
-                "group_by_col": [1]
-            }
-        },
-        {
-            "t": "Leafor",
-            "c": {
-                "mat_view": {
-                    "name": "first",
-                    "column_names": ["Article", "Count", "Agg count"],
-                    "schema": ["Text", "Int", "Int"],
-                    "key_index": 0
-                }
-            }
-        },
-        {
-            "t": "Leafor",
-            "c": {
-                "mat_view": {
-                    "name": "second",
-                    "column_names": ["Article"],
-                    "schema": ["Text"],
-                    "key_index": 0
-                }
-            }
-        }
-    ],
-    "edges": [{
-        "parentindex": 0,
-        "childindex": 1,
-    }, {
-        "parentindex": 0,
-        "childindex": 2,
-    },
-    {
-        "parentindex": 1,
-        "childindex": 3,
-    },
-    {
-        "parentindex": 3,
-        "childindex": 4,
-    },
-    {
-        "parentindex": 2,
-        "childindex": 5,
-    }]
+var global_graph_initial;
+var graph;
+
+socket.onopen = function(e) {
+    alert("[open] Connection established");
+    alert("Sending to server");
+    //socket.send("John");
 };
 
-const graph = DataFlowGraph.new(JSON.stringify(dummygraph));
+socket.onmessage = function(event) {
+    alert(`[message] Data received from server: ${event.data}`);
+    console.log("once");
+    graph = DataFlowGraph.new(event.data);
+};
+
+socket.onclose = function(event) {
+    if (event.wasClean) {
+        alert(`[close] Connection closed cleanly, code=${event.code} reason=${event.reason}`);
+    } else {
+        // e.g. server process killed or network down
+        // event.code is usually 1006 in this case
+        alert('[close] Connection died');
+    }
+};
+
+socket.onerror = function(error) {
+    alert(`[error] ${error.message}`);
+};
 
 const refreshEntries = () => {
     console.log("Printing");
