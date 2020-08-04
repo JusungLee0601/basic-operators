@@ -1,6 +1,6 @@
 import { View, Row, SchemaType, DataType, DataFlowGraph, Operation} from "noria-clientside";
 
-let socket = new WebSocket("ws://localhost:3012/socket");
+let socket = new WebSocket("ws://localhost:3012/poopoo");
 
 var global_graph_initial;
 var graph;

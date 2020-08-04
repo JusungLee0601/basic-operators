@@ -1339,6 +1339,9 @@ fn innerjoin_unit_test() {
 //}
 
 //#[wasm_bindgen_test]
+#[wasm_bindgen_test]
+//114, 95, 98, 91, 98 => 99.2
+//Throughput => 201,612
 fn write_throughput_votecounts() {
     let graph_json = r##"{
         "operators": [
@@ -1431,7 +1434,9 @@ fn write_throughput_votecounts() {
     assert_eq!(graph.node_count(), 4);
 }
 
-//#[wasm_bindgen_test]
+#[wasm_bindgen_test]
+//1.429, 2.104, 2.019, 1.296, 1,316 => 1.638
+//Throughput => 610,501
 fn read_throughput_votecounts() {
     let graph_json = r##"{
         "operators": [
@@ -1519,7 +1524,11 @@ fn read_throughput_votecounts() {
     assert_eq!(graph.node_count(), 4);
 }
 
-//#[wasm_bindgen_test]
+#[wasm_bindgen_test]
+//95, 161, 148, 103, 103 => 122
+//Throughput => 327,869
+//Calculated => 99 + 32 = 131
+//Calculated Throughput => 303,121
 fn latency_test() {
     let graph_json = r##"{
         "operators": [
