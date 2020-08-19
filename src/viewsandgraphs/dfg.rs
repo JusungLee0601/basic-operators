@@ -8,6 +8,7 @@ use serde_json::Value;
 use petgraph::graph::NodeIndex;
 use crate::operators::Operator;
 use crate::units::row::Row;
+use crate::units::serverchange::ServerChange;
 use crate::units::change::Change;
 use crate::types::datatype::DataType;
 use crate::types::changetype::ChangeType;
@@ -145,6 +146,16 @@ impl DataFlowGraph {
         let change_vec = vec![change];
 
         root_op.process_change(change_vec, self, NodeIndex::new(1), root_node_index.clone());
+    }
+
+    pub fn change_to_root_sc(&self, sc_json: String) {
+        console_error_panic_hook::set_once();
+        let sc: ServerChange = serde_json::from_str(&sc_json).unwrap();
+
+        let root_node_index = *(self.root_id_map.get(&sc.root_id).unwrap());
+        let mut root_op = self.data.node_weight(root_node_index.clone()).unwrap().borrow_mut();
+
+        root_op.process_change(sc.changes, self, NodeIndex::new(1), root_node_index.clone());
     }
 
     pub fn read(&self, leaf_index: usize, key_string: String) -> String {
