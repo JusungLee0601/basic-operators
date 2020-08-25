@@ -149,7 +149,6 @@ impl DataFlowGraph {
     }
 
     pub fn change_to_root_sc(&self, sc_json: String) {
-        console_error_panic_hook::set_once();
         let sc: ServerChange = serde_json::from_str(&sc_json).unwrap();
 
         let root_node_index = *(self.root_id_map.get(&sc.root_id).unwrap());
@@ -167,12 +166,9 @@ impl DataFlowGraph {
                 let row = (*leaf).mat_view.table.get(&key).unwrap();
                 let j = serde_json::to_string(&row);
                 
-                match j {
-                    Ok(string) => string,
-                    Err(_err) => "error".to_owned(),
-                }
+                j.unwrap()
             }
-            _ => "error".to_owned(),
+            _ => "noleaf".to_owned(),
         }
     }
 

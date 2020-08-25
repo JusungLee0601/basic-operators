@@ -1433,7 +1433,7 @@ fn read_throughput_votecounts() {
     let now2 = Instant::now();
 
     for change in keys.iter() {
-        graph.read(4, change.to_string());
+        println!(graph.read(4, change.to_string()));
     }
 
     let elapsed2 = now2.elapsed();
