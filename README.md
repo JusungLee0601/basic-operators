@@ -16,11 +16,13 @@
 
 # Overview 
 
-## Project Abstract
+## SnakeRiver System Background
 
 Many web applications today are read-heavy, meaning users are much more likely to access information from a server than they are to add new data. This read access is often a queried by the client over an internet connection. Computation to produce the desired read data, often on tables in a relational database, can be costly, and queries that are repeated are especially taxing for systems. Several alternative systems to relational databases exist, including Noria, a streaming dataflow system that stores data in a graph. Data and updates flow through the graph’s operator nodes, essentially precomputing a query's desired information, and are stored in ready to access tables called Views. Although this approach significantly reduces read access speeds, it still fails to circumvent the internet latency that comes with queries and data sent back and forth over the internet. 
 
 SnakeRiver is a system where that dataflow graph exists across both server and client, executing server computation and storing View data in the client itself. Reads are therefore done locally and are incredibly fast. In specific graph scenarios, user-specific processing can also be done in the client, reducing server load and costs. This is achieved with a library of Rust functions that compiles into Web Assembly, allowing the creation of a graph that manipulates data in the browser. In our testing of several read and write scenarios, write speeds were reasonable for expected workloads, while reads remained very fast. Latency per operation was as much 10x faster than a Noria system under comparable workloads, showing that the system succeeds in lowering both latency and server computation in web applications that feature read heavy workloads.
+
+Work was advised by [Malte Schwarzkopf](https://cs.brown.edu/news/2020/04/29/malte-schwarzkopf-wins-salomon-award-gdpr-compliant-system-design/) of the [Brown University Systems Group](https://systems.cs.brown.edu/) as part of an [UTRA](https://www.brown.edu/academics/college/fellowships/utra/) funded research opportunity, completed during the 2020 summer.
 
 ## About
 
@@ -56,9 +58,9 @@ wasm-pack test --headless -chrome
 
 # Project Writeup
 
-## A Brief Background of Noria
+## A Brief Background, explained with Noria
 
-This system 
+Traditional database systems are relational, meaning data is stored in large tables and are accessed with queries. 
 
 Currently, the clientside graph - and by extension the server graph - feature a Noria-like structure. Key differences include a lack of partial/windowed state and no support for upqueries. While comparatively simple, the graph does support incremental updates, which is what allows for the system and the Views to function.
 
