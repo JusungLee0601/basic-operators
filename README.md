@@ -5,13 +5,12 @@
   <strong>Clientside library for the SnakeRiver system</strong>
 
   <h3>
-    <a href="https://rustwasm.github.io/docs/wasm-pack/tutorials/npm-browser-packages/index.html">snakeriver-server</a>
+    <a href="https://github.com/JusungLee0601/snakeriver-server">snakeriver-server</a>
   <br>
-  <a href="https://rustwasm.github.io/docs/wasm-pack/tutorials/npm-browser-packages/index.html">slide deck</a>
+  <a href="https://docs.google.com/presentation/d/1ODsMf6o6zTsH2Zp_oWeKQSeTu0nmWtI7VzPwBKDrOT4/edit?usp=sharing">slide deck</a>
   <br>
-  <a href="https://rustwasm.github.io/docs/wasm-pack/tutorials/npm-browser-packages/index.html">poster</a>
+  <a href="https://repository.library.brown.edu/studio/item/bdr:1140600/">poster</a>
    <br>
-  <a href="https://rustwasm.github.io/docs/wasm-pack/tutorials/npm-browser-packages/index.html">project template</a>
   </h3>
 </div>
 
