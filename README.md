@@ -2,11 +2,12 @@
 
   <h1><code>snakeriver-clientside</code></h1>
 
-  <strong>Clientside library for the SnakeRiver system <a href="https://github.com/rustwasm/wasm-pack">wasm-pack</a>.</strong>
+  <strong>Clientside library for the SnakeRiver system</strong>
 
   <h3>
     <a href="https://rustwasm.github.io/docs/wasm-pack/tutorials/npm-browser-packages/index.html">snakeriver-server</a>
-
+  <a href="https://rustwasm.github.io/docs/wasm-pack/tutorials/npm-browser-packages/index.html">slide deck</a>
+  <a href="https://rustwasm.github.io/docs/wasm-pack/tutorials/npm-browser-packages/index.html">poster</a>
   </h3>
 </div>
 
