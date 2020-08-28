@@ -6,7 +6,9 @@
 
   <h3>
     <a href="https://rustwasm.github.io/docs/wasm-pack/tutorials/npm-browser-packages/index.html">snakeriver-server</a>
+  <br>
   <a href="https://rustwasm.github.io/docs/wasm-pack/tutorials/npm-browser-packages/index.html">slide deck</a>
+  <br>
   <a href="https://rustwasm.github.io/docs/wasm-pack/tutorials/npm-browser-packages/index.html">poster</a>
   </h3>
 </div>
