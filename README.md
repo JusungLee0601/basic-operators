@@ -15,7 +15,7 @@
   </h3>
 </div>
 
-#Overview 
+# Overview 
 
 ## Project Abstract
 
@@ -55,7 +55,15 @@ In test directory to run clientside tests:
 wasm-pack test --headless -chrome
 ```
 
-## Some General Takeaways
+# Project Writeup
+
+## A Brief Background of Noria
+
+This system 
+
+Currently, the clientside graph - and by extension the server graph - feature a Noria-like structure. Key differences include a lack of partial/windowed state and no support for upqueries. While comparatively simple, the graph does support incremental updates, which is what allows for the system and the Views to function.
+
+The movements from Rust to Javascript, especially with function calls to WebAssembly code, are often very limiting. Types used for function arguments are limited, and although several of the libraries used help work around this, further work must be cognizant of these limitations. Currently, the serde-json library allows for easy transferal from strings to type, especially from the JSON strings that get sent from the SnakeRiver server, but there is a lot of potential for optimizations even within the operator graph.
 
 
 
