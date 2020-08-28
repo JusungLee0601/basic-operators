@@ -39,28 +39,30 @@ This repository contains the library of functions that operate within the browse
 
 ## 🚴 Usage
 
-In root directory to compile Rust code into Web Assembly:
+In /root directory to compile Rust code into Web Assembly:
 ```
 wasm-pack build
 ```
 
 
-In www directory to start up server:
+In /www directory to start up "CDN" server:
 ```
 npm run start
 ```
 
 
-In test directory to run clientside tests:
+In /test directory to run clientside tests:
 ```
 wasm-pack test --headless -chrome
 ```
 
 # Project Writeup
 
-## A Brief Background, explained with Noria
+## The Problem(s), Explained with Noria
 
-Traditional database systems are relational, meaning data is stored in large tables and are accessed with queries. 
+Traditional database systems are relational, meaning data is stored in large tables and are accessed with queries. For many websites, reads make up the majority of these queries. Noria is a streaming dataflow system that allows for data to be precomputed incrementally, so that reads that require computation and are repeated only have to access said data from stores called Views. Below is a diagram of a potential Noria graph, specifically with how it communicates with the client as well.
+
+<img src="readme/noria_diagram" width="300"/>
 
 Currently, the clientside graph - and by extension the server graph - feature a Noria-like structure. Key differences include a lack of partial/windowed state and no support for upqueries. While comparatively simple, the graph does support incremental updates, which is what allows for the system and the Views to function.
 
