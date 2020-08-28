@@ -15,6 +15,8 @@
   </h3>
 </div>
 
+#Overview 
+
 ## Project Abstract
 
 Many web applications today are read-heavy, meaning users are much more likely to access information from a server than they are to add new data. This read access is often a queried by the client over an internet connection. Computation to produce the desired read data, often on tables in a relational database, can be costly, and queries that are repeated are especially taxing for systems. Several alternative systems to relational databases exist, including Noria, a streaming dataflow system that stores data in a graph. Data and updates flow through the graph’s operator nodes, essentially precomputing a query's desired information, and are stored in ready to access tables called Views. Although this approach significantly reduces read access speeds, it still fails to circumvent the internet latency that comes with queries and data sent back and forth over the internet. 
@@ -52,4 +54,8 @@ In test directory to run clientside tests:
 ```
 wasm-pack test --headless -chrome
 ```
+
+## Some General Takeaways
+
+
 
