@@ -2,7 +2,7 @@
 
   <h1><code>snakeriver-clientside</code></h1>
 
-  <strong>Clientside library for the SnakeRiver system</strong>
+  <strong>Clientside Library for the SnakeRiver System</strong>
 
   <h3>
     <a href="https://github.com/JusungLee0601/snakeriver-server">snakeriver-server</a>
@@ -35,11 +35,11 @@ This repository contains the library of functions that operate within the browse
 - `src/units`: row and change objects
 - `src/viewsandgraphs`: the view and graph structures
 - `index.js`: content served by CDN, also has in javascript testing that works in tandem with the SnakeRiver-server
-- `test`: contains throughput and latency testing for purely clientside values, testing with server requires SnakeRiver-server
+- `lib.rs`: contains throughput and latency testing for purely clientside values, but also has throughput and latency testing
 
 ## 🚴 Usage
 
-In /root directory to compile Rust code into Web Assembly:
+In root directory to compile Rust code into Web Assembly:
 ```
 wasm-pack build
 ```
@@ -51,7 +51,7 @@ npm run start
 ```
 
 
-In /test directory to run clientside tests:
+In root directory to run clientside tests:
 ```
 wasm-pack test --headless -chrome
 ```
@@ -78,8 +78,11 @@ SnakeRiver most benefits read heavy systems with infrequent writes, where users 
 
 <img src="readme/technologies.png" width="600"/>
 
+The clientside library is written in Rust that is compiled into WebAssembly through the wasm-bindgen API. In communication with a server, HTML/CSS, the Rust Library, and JS files that use the rust functions to create and operate the graph are sent on initial connnection. Subgraph structure and updates are sent and built from JSON. 'src' organizes all library code.
 
 Currently, the clientside graph - and by extension the server graph - feature a Noria-like structure. Key differences include a lack of partial/windowed state and no support for upqueries. While comparatively simple, the graph does support incremental updates, which is what allows for the system and the Views to function.
+
+## Testing the Client
 
 The movements from Rust to Javascript, especially with function calls to WebAssembly code, are often very limiting. Types used for function arguments are limited, and although several of the libraries used help work around this, further work must be cognizant of these limitations. Currently, the serde-json library allows for easy transferal from strings to type, especially from the JSON strings that get sent from the SnakeRiver server, but there is a lot of potential for optimizations even within the operator graph.
 
