@@ -16,7 +16,7 @@
 
 # Overview 
 
-## SnakeRiver System Background
+## SnakeRiver: A Server-Client Dataflow System For Read Heavy Web Applications
 
 Many web applications today are read-heavy, meaning users are much more likely to access information from a server than they are to add new data. This read access is often a queried by the client over an internet connection. Computation to produce the desired read data, often on tables in a relational database, can be costly, and queries that are repeated are especially taxing for systems. Several alternative systems to relational databases exist, including Noria, a streaming dataflow system that stores data in a graph. Data and updates flow through the graph’s operator nodes, essentially precomputing a query's desired information, and are stored in ready to access tables called Views. Although this approach significantly reduces read access speeds, it still fails to circumvent the internet latency that comes with queries and data sent back and forth over the internet. 
 
@@ -56,13 +56,28 @@ In /test directory to run clientside tests:
 wasm-pack test --headless -chrome
 ```
 
-# Project Writeup
+# Project Writeup - The Client
 
 ## The Problem(s), Explained with Noria
 
-Traditional database systems are relational, meaning data is stored in large tables and are accessed with queries. For many websites, reads make up the majority of these queries. Noria is a streaming dataflow system that allows for data to be precomputed incrementally, so that reads that require computation and are repeated only have to access said data from stores called Views. Below is a diagram of a potential Noria graph, specifically with how it communicates with the client as well.
+Traditional database systems are relational, meaning data is stored in large tables and are accessed with queries. For many websites, reads make up the majority of these queries. Noria is a streaming dataflow system that allows for data to be precomputed incrementally, so that reads that require computation and are repeated only have to access said data from stores called Views. Below is a diagram of a potential Noria graph, specifically with how it communicates with the clients.
 
-<img src="readme/noria_diagram" width="300"/>
+<img src="readme/noria_diagram.png" width="600"/>
+
+Updates are processed incrementally, with changes modifying the base table and "flowing" downward, operated by the nodes to eventually populate the Views at the bottom of the graph. While reads are much faster, this system still relies on queries for reads and writes to occurr across an internet connection. The SnakeRiver system attempts to circumvent this latency inherent to the system.
+
+## Moving Part of the Graph Clientside
+
+<img src="readme/snakeriver_diagram.png" width="600"/>
+
+In SnakeRiver, part of this dataflow graph exists in the clients that connect to the server. While the updates flowing downward and writes to base tables are eventually sent between server and client over the internet, reads are performed locally, with user relevant Views stored and operated on in the browser. The expected results are extremely fast read times, a reduction in needed read requests with more data now available to the client, and reduced computation for the server.
+
+SnakeRiver most benefits read heavy systems with infrequent writes, where users might operate on large amounts of relatively constant data that doesn't necessarily need to be instantaneously accurate. It also might benefit scenarios where computation is user specific, say with something like a blacklist for a user timeline. Updates could then be processed through user specific subgraphs, simplifying server side computation and necessary data storage. 
+
+## Creating the Clientside Library
+
+<img src="readme/technologies.png" width="600"/>
+
 
 Currently, the clientside graph - and by extension the server graph - feature a Noria-like structure. Key differences include a lack of partial/windowed state and no support for upqueries. While comparatively simple, the graph does support incremental updates, which is what allows for the system and the Views to function.
 
